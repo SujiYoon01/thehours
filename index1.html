@@ -48,8 +48,8 @@
   <div class="header-top">
     <h1>🛰️ 우주사업부 근무실적 현황</h1>
     <div class="header-buttons">
-      <input type="file" id="csvInput" accept=".xlsx" hidden>
-      <button id="btnLoadCsv">엑셀 불러오기</button>
+      <input type="file" id="csvInput" accept=".csv" hidden>
+      <button id="btnLoadCsv">CSV 불러오기</button>
       <button id="btnSaveFull">완성파일로 저장</button>
       <button id="btnSaveFiltered">현재 선택 필터 내용 저장</button>
     </div>
@@ -86,81 +86,28 @@ const COL = {구분:1, 주차:3, 사번:4, 이름:5, 직급:6, 부서명:8, 주�
 
 let STATE = { rows: [] }; // 필터 통과한 유효 행만 저장: {사번,이름,직급,부서,주차,시간}
 
-// ===== xlsx(엑셀) 직접 파싱 : 외부 라이브러리 없이 브라우저 내장기능(DecompressionStream/DOMParser)만 사용 =====
-async function unzip(buffer){
-  const view = new DataView(buffer), bytes = new Uint8Array(buffer);
-  let eocd=-1;
-  for(let i=bytes.length-22;i>=0;i--){ if(view.getUint32(i,true)===0x06054b50){eocd=i;break;} }
-  if(eocd<0) throw new Error('EOCD not found');
-  let p = view.getUint32(eocd+16,true);
-  const cnt = view.getUint16(eocd+10,true);
-  const files = {};
-  for(let i=0;i<cnt;i++){
-    if(view.getUint32(p,true)!==0x02014b50) break;
-    const method = view.getUint16(p+10,true);
-    const compSize = view.getUint32(p+20,true);
-    const nameLen = view.getUint16(p+28,true), extraLen = view.getUint16(p+30,true), commentLen = view.getUint16(p+32,true);
-    const localOffset = view.getUint32(p+42,true);
-    const name = new TextDecoder().decode(bytes.slice(p+46,p+46+nameLen));
-    files[name] = {method, compSize, localOffset};
-    p += 46+nameLen+extraLen+commentLen;
-  }
-  async function extract(name){
-    const f = files[name]; if(!f) return null;
-    const lp = f.localOffset;
-    const lNameLen = view.getUint16(lp+26,true), lExtraLen = view.getUint16(lp+28,true);
-    const start = lp+30+lNameLen+lExtraLen;
-    const compData = bytes.slice(start, start+f.compSize);
-    if(f.method===0) return compData;
-    const stream = new Blob([compData]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
-  }
-  return {files, extract};
+// ===== CSV 인코딩 자동감지 & 파싱 =====
+async function readFileAsText(file){
+  const buf = await file.arrayBuffer();
+  const utf8 = new TextDecoder('utf-8').decode(buf);
+  if(utf8.includes('\ufffd')) return new TextDecoder('euc-kr').decode(buf);
+  return utf8;
 }
-function colLetterToIndex(ref){
-  const letters = ref.match(/[A-Z]+/)[0];
-  let idx=0; for(const ch of letters) idx = idx*26 + (ch.charCodeAt(0)-64);
-  return idx-1;
-}
-async function parseXlsx(buffer){
-  const zip = await unzip(buffer);
-  const sheetName = Object.keys(zip.files).find(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n)) || 'xl/worksheets/sheet1.xml';
-  const decoder = new TextDecoder('utf-8');
-  const sheetXml = decoder.decode(await zip.extract(sheetName));
-  const sharedBytes = await zip.extract('xl/sharedStrings.xml');
-  let shared = [];
-  if(sharedBytes){
-    const dom = new DOMParser().parseFromString(decoder.decode(sharedBytes),'text/xml');
-    shared = [...dom.getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));
-  }
-  const dom = new DOMParser().parseFromString(sheetXml,'text/xml');
-  return [...dom.getElementsByTagName('row')].map(rowEl=>{
-    const arr = [];
-    [...rowEl.getElementsByTagName('c')].forEach(c=>{
-      const idx = colLetterToIndex(c.getAttribute('r'));
-      const t = c.getAttribute('t');
-      let val = '';
-      if(t==='inlineStr'){ const isEl=c.getElementsByTagName('t')[0]; val = isEl?isEl.textContent:''; }
-      else { const vEl=c.getElementsByTagName('v')[0]; val = vEl?vEl.textContent:''; if(t==='s') val = shared[parseInt(val,10)]||''; }
-      arr[idx] = val;
-    });
-    return arr;
-  });
-}
-function extractValidRows(sheetRows){
+function extractValidRows(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
   const rows = [];
-  for(let i=1;i<sheetRows.length;i++){ // 0번째 행은 헤더
-    const c = sheetRows[i]; if(!c) continue;
-    const val = idx => (c[idx]!==undefined && c[idx]!==null) ? String(c[idx]).trim() : '';
-    const 직급 = val(COL.직급), 부서 = val(COL.부서명), 구분 = val(COL.구분);
-    const 분 = parseFloat(val(COL.주확정));
+  for(let i=1;i<lines.length;i++){ // 0번째는 헤더
+    const c = lines[i].split(',').map(v=>v.replace(/^"|"$/g,'').trim());
+    if(c.length < COL.주확정+1) continue;
+    const 직급 = c[COL.직급], 부서 = c[COL.부서명], 구분 = c[COL.구분];
+    const 분 = parseFloat(c[COL.주확정]);
     if(EXCLUDE_RANK.includes(직급)) continue;
     if(EXCLUDE_DEPT.includes(부서)) continue;
     if(구분 === '근태예외자') continue;
     if(!분 || 분 === 0) continue; // 신규입사자 0시간 주차 등 제외
     rows.push({
-      사번: val(COL.사번), 이름: val(COL.이름), 직급, 부서,
-      주차: val(COL.주차), 시간: Math.round((분/60)*10)/10
+      사번: c[COL.사번], 이름: c[COL.이름], 직급, 부서,
+      주차: c[COL.주차], 시간: Math.round((분/60)*10)/10
     });
   }
   return rows;
@@ -268,11 +215,10 @@ document.getElementById('csvInput').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
   try{
-    const buf = await file.arrayBuffer();
-    const sheetRows = await parseXlsx(buf);
-    initWithRows(extractValidRows(sheetRows), null);
+    const text = await readFileAsText(file);
+    initWithRows(extractValidRows(text), null);
   }catch(err){
-    alert('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+    alert('CSV 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
   }
 });
 document.getElementById('btnLoadCsv').onclick = ()=> document.getElementById('csvInput').click();
