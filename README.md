@@ -1,7 +1,297 @@
-#searchCard .search-row{display:flex; gap:6px;}
-#nameSearch{padding:9px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; width:100%;}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>우주사업부 근무실적 현황</title>
+<style>
+  :root{
+    --navy:#1E3358; --navy-d:#152540; --gold:#C9A227; --gold2:#D9A441;
+    --red:#C0392B; --bg:#F4F6FA; --card:#FFFFFF; --border:#E3E7EF; --text:#333; --sub:#8892A6;
+  }
+  *{box-sizing:border-box; font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;}
+  body{margin:0; background:var(--bg); color:var(--text);}
+  .wrap{max-width:1100px; margin:0 auto; padding:20px;}
+  /* ===== 헤더 ===== */
+  .header-top{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  .header-top h1{font-size:20px; color:var(--navy); margin:0;}
+  .header-buttons button{margin-left:6px; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600;}
+  #btnLoadCsv{background:var(--navy); color:#fff;}
+  #btnSaveFull{background:var(--gold2); color:#fff;}
+  #btnSaveFiltered{background:var(--red); color:#fff;}
+  .header-controls{margin-top:14px;}
+  #deptFilter{padding:8px 10px; border-radius:6px; border:1px solid var(--border); font-size:13px; min-width:160px;}
+  /* ===== 페이지 탭 ===== */
+  .page-tabs{margin-top:14px; display:flex; gap:8px;}
+  .tab{padding:9px 18px; border:none; border-radius:6px; background:#E9ECF3; color:var(--sub); font-weight:600; cursor:pointer; font-size:13px;}
+  .tab.active{background:var(--navy); color:#fff;}
+  .tab:disabled{opacity:.5; cursor:not-allowed;}
+  /* ===== 카드 ===== */
+  .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; margin-top:16px;}
+  .card-title{font-size:15px; font-weight:700; color:var(--navy); margin-bottom:12px;}
+.search-row{display:flex; gap:6px;}
+  #nameSearch{padding:9px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; width:100%;}
+  #btnSearch{padding:9px 16px; border:none; border-radius:6px; background:var(--navy); color:#fff; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0;}
+  #duplicateNames{margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;}
+  .dupBtn{padding:8px 12px; border:1px solid var(--gold2); background:#FFF8EA; color:var(--navy-d); border-radius:6px; cursor:pointer; font-size:13px;}
+  #personResult{margin-top:14px;}
+  .resultRow{display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px;}
+  .resultRow:last-child{border-bottom:none;}
+  .diffPos{color:var(--red); font-weight:700;}
+  .diffNeg{color:var(--navy); font-weight:700;}
+  .noResult{color:var(--sub); font-size:13px;}
+  .dataStatus{font-size:12px; color:var(--sub); margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- ===== 헤더 ===== -->
+  <div class="header-top">
+    <h1>🛰️ 우주사업부 근무실적 현황</h1>
+    <div class="header-buttons">
+      <input type="file" id="csvInput" accept=".csv" hidden>
+      <button id="btnLoadCsv">CSV 불러오기</button>
+      <button id="btnSaveFull">완성파일로 저장</button>
+      <button id="btnSaveFiltered">현재 선택 필터 내용 저장</button>
+    </div>
+  </div>
+  <div class="header-controls">
+    <select id="deptFilter"><option value="전체">부서 전체</option></select>
+    <span class="dataStatus" id="dataStatus">CSV 파일을 불러와주세요.</span>
+  </div>
+  <div class="page-tabs">
+    <button class="tab active" data-page="1">근무실적 현황</button>
+    <button class="tab" data-page="2" disabled>사분면 분포</button>
+  </div>
 
-<div class="search-row">
-  <input type="text" id="nameSearch" placeholder="이름을 입력하세요">
-  <button id="btnSearch">검색</button>
+  <!-- ===== 인원 검색 카드 ===== -->
+  <div class="card" id="searchCard">
+    <div class="card-title">인원 검색</div>
+    <div class="search-row">
+      <input type="text" id="nameSearch" placeholder="이름을 입력하세요">
+      <button id="btnSearch">검색</button>
+    </div>
+    <div id="duplicateNames"></div>
+    <div id="personResult"></div>
+  </div>
 </div>
+
+<script>
+window.__EMBEDDED_DATA__ = null;   // 완성파일 저장 시 전체 데이터 삽입
+window.__FORCED_DEPT__ = null;     // 필터 저장 시 특정 부서로 고정
+
+// ===== 상수 =====
+const EXCLUDE_RANK = ['상무','전무','부사장'];
+const EXCLUDE_DEPT = ['우주사업부','우주사업총괄'];
+const REQUIRED_COLUMNS = ['구분','주차','사번','이름','직급','부서명','주확정근무시간'];
+
+let STATE = { rows: [] }; // 필터 통과한 유효 행만 저장: {사번,이름,직급,부서,주차,시간}
+
+// ===== 따옴표(쉼표 포함 값) 안전 처리 CSV 파서 =====
+function parseCSVRaw(text){
+  text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){ if(text[i+1] === '"'){ field+='"'; i++; } else inQuotes = false; }
+      else field += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === ','){ row.push(field); field=''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else field += c;
+    }
+  }
+  if(field.length>0 || row.length>0){ row.push(field); rows.push(row); }
+  if(rows.length===0) return { data:[], fields:[] };
+  const header = rows[0];
+  const data = [];
+  for(let r=1;r<rows.length;r++){
+    if(rows[r].length===1 && rows[r][0]==='') continue;
+    const obj = {};
+    header.forEach((h,idx)=>{ obj[h] = rows[r][idx]!==undefined ? rows[r][idx].trim() : ''; });
+    data.push(obj);
+  }
+  return { data, fields:header };
+}
+
+// ===== 인코딩 자동감지 (UTF-16 BOM / UTF-8 / EUC-KR) =====
+async function readFileAsText(file){
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf.slice(0,4));
+  if(bytes[0]===0x50 && bytes[1]===0x4B){ // 'PK' 시그니처 = 엑셀(xlsx)을 그대로 올린 경우
+    throw new Error('엑셀 파일(.xlsx)을 그대로 올리신 것 같습니다. 엑셀에서 "다른 이름으로 저장 → CSV UTF-8(쉼표로 분리)"로 저장한 뒤 그 CSV 파일을 올려주세요.');
+  }
+  if(bytes[0]===0xFF && bytes[1]===0xFE) return new TextDecoder('utf-16le').decode(buf);
+  if(bytes[0]===0xFE && bytes[1]===0xFF) return new TextDecoder('utf-16be').decode(buf);
+  try{ return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
+  catch(e){ try{ return new TextDecoder('euc-kr').decode(buf); } catch(e2){ return new TextDecoder('utf-8').decode(buf); } }
+}
+
+function extractValidRows(text){
+  const { data, fields } = parseCSVRaw(text);
+  const missing = REQUIRED_COLUMNS.filter(c => !fields.includes(c));
+  if(missing.length>0){
+    throw new Error(`CSV에서 다음 열을 찾지 못했습니다: ${missing.join(', ')} (인식된 열: ${fields.join(', ')})`);
+  }
+  const rows = [];
+  data.forEach(r=>{
+    if(!r['사번']) return;
+    const 직급 = r['직급'], 부서 = r['부서명'], 구분 = r['구분'];
+    const 분 = parseFloat(r['주확정근무시간']);
+    if(EXCLUDE_RANK.includes(직급)) return;
+    if(EXCLUDE_DEPT.includes(부서)) return;
+    if(구분 === '근태예외자') return;
+    if(!분 || 분 === 0) return; // 신규입사자 0시간 주차 등 제외
+    rows.push({
+      사번: r['사번'], 이름: r['이름'], 직급, 부서,
+      주차: r['주차'], 시간: Math.round((분/60)*10)/10
+    });
+  });
+  return rows;
+}
+
+
+
+// ===== 통계 유틸 =====
+function buildPersonMap(rows){
+  const map = new Map();
+  rows.forEach(r=>{
+    if(!map.has(r.사번)) map.set(r.사번, {이름:r.이름, 직급:r.직급, 부서:r.부서, weeks:[]});
+    map.get(r.사번).weeks.push(r.시간);
+  });
+  map.forEach(p=>{ p.avg = Math.round((p.weeks.reduce((a,b)=>a+b,0)/p.weeks.length)*10)/10; });
+  return map;
+}
+function deptAvg(personMap, dept){
+  const list=[...personMap.values()].filter(p=>p.부서===dept);
+  if(!list.length) return 0;
+  return Math.round((list.reduce((a,p)=>a+p.avg,0)/list.length)*10)/10;
+}
+function divisionAvg(personMap){
+  const list=[...personMap.values()];
+  if(!list.length) return 0;
+  return Math.round((list.reduce((a,p)=>a+p.avg,0)/list.length)*10)/10;
+}
+
+// ===== 부서 드롭다운 =====
+function populateDeptDropdown(rows, forcedDept){
+  const sel = document.getElementById('deptFilter');
+  const depts = [...new Set(rows.map(r=>r.부서))].sort();
+  sel.innerHTML = '<option value="전체">부서 전체</option>' + depts.map(d=>`<option value="${d}">${d}</option>`).join('');
+  if(forcedDept){ sel.value = forcedDept; sel.disabled = true; }
+}
+
+// ===== 인원 검색 =====
+function currentDeptFilter(){ return document.getElementById('deptFilter').value; }
+
+function searchPerson(term){
+  const personMap = buildPersonMap(STATE.rows);
+  const dept = currentDeptFilter();
+  let candidates = [...personMap.entries()]
+    .filter(([_,p])=> dept==='전체' || p.부서===dept)
+    .filter(([_,p])=> p.이름.includes(term));
+
+  const dupBox = document.getElementById('duplicateNames');
+  const resultBox = document.getElementById('personResult');
+  dupBox.innerHTML=''; resultBox.innerHTML='';
+
+  if(candidates.length===0){
+    resultBox.innerHTML = '<div class="noResult">검색 결과가 없습니다.</div>';
+    return;
+  }
+  if(candidates.length===1){
+    renderPersonResult(candidates[0][0], personMap);
+    return;
+  }
+  candidates.forEach(([사번,p])=>{
+    const btn = document.createElement('button');
+    btn.className='dupBtn';
+    btn.textContent = `${p.이름}.${p.부서}.${p.직급}`;
+    btn.onclick = ()=> renderPersonResult(사번, personMap);
+    dupBox.appendChild(btn);
+  });
+}
+
+function renderPersonResult(사번, personMap){
+  const p = personMap.get(사번);
+  const dAvg = deptAvg(personMap, p.부서);
+  const uAvg = divisionAvg(personMap);
+  const diffDept = Math.round((p.avg - dAvg)*10)/10;
+  const diffDiv = Math.round((p.avg - uAvg)*10)/10;
+  const fmt = n => (n>=0?'+':'') + n + '시간';
+  const cls = n => n>=0 ? 'diffPos' : 'diffNeg';
+
+  document.getElementById('personResult').innerHTML = `
+    <div class="resultRow"><span>${p.이름} (${p.부서} / ${p.직급}) 이번달 평균 근무시간</span><b>${p.avg}시간</b></div>
+    <div class="resultRow"><span>부서(${p.부서}) 평균 대비</span><span class="${cls(diffDept)}">${fmt(diffDept)}</span></div>
+    <div class="resultRow"><span>사업부 평균 대비</span><span class="${cls(diffDiv)}">${fmt(diffDiv)}</span></div>
+  `;
+}
+
+// ===== 파일 저장(내보내기) =====
+function buildExportHtml(rowsToEmbed, forcedDept){
+  let html = document.documentElement.outerHTML;
+  html = html.replace(/window\.__EMBEDDED_DATA__\s*=\s*null;/, `window.__EMBEDDED_DATA__ = ${JSON.stringify(rowsToEmbed)};`);
+  html = html.replace(/window\.__FORCED_DEPT__\s*=\s*null;/, `window.__FORCED_DEPT__ = ${forcedDept? JSON.stringify(forcedDept):'null'};`);
+  return html;
+}
+function downloadHtml(html, filename){
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// ===== 초기화 =====
+function initWithRows(rows, forcedDept){
+  STATE.rows = rows;
+  populateDeptDropdown(rows, forcedDept);
+  document.getElementById('dataStatus').textContent = `데이터 로드 완료 (${rows.length}건)`;
+}
+
+document.getElementById('csvInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await readFileAsText(file);
+    initWithRows(extractValidRows(text), null);
+  }catch(err){
+    alert('CSV 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+  }
+});
+document.getElementById('btnLoadCsv').onclick = ()=> document.getElementById('csvInput').click();
+
+document.getElementById('btnSaveFull').onclick = ()=>{
+  if(!STATE.rows.length){ alert('먼저 CSV 파일을 불러와주세요.'); return; }
+  downloadHtml(buildExportHtml(STATE.rows, null), '우주사업부_근무실적현황.html');
+};
+document.getElementById('btnSaveFiltered').onclick = ()=>{
+  const dept = currentDeptFilter();
+  if(dept==='전체'){ alert('저장할 특정 부서를 선택해주세요.'); return; }
+  const filtered = STATE.rows.filter(r=>r.부서===dept);
+  downloadHtml(buildExportHtml(filtered, dept), `${dept}_근무실적현황.html`);
+};
+
+document.getElementById('btnSearch').onclick = ()=>{
+  const term = document.getElementById('nameSearch').value.trim();
+  if(!term){ return; }
+  searchPerson(term);
+};
+document.getElementById('nameSearch').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnSearch').click(); });
+
+// 페이지 탭 (page2는 추후 구현)
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>{
+  if(t.disabled) return;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+}));
+
+// 저장된 파일을 다시 열었을 때 임베드 데이터 자동 로드
+if(window.__EMBEDDED_DATA__){ initWithRows(window.__EMBEDDED_DATA__, window.__FORCED_DEPT__); }
+</script>
+</body>
+</html>
