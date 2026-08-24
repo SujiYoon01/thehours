@@ -116,13 +116,6 @@ tbody tr:last-child td{border-bottom:none;}
 .modal-box h3{margin:0 0 12px; font-size:16px; font-weight:800; color:var(--navy);}
 .modal-box p{margin:0 0 8px; font-size:13px; line-height:1.6; color:var(--navy);}
 .modal-close{margin-top:14px; background:var(--navy); color:#fff; border:none; border-radius:999px; padding:9px 18px; font-size:12.5px; font-weight:700; cursor:pointer;}
-/* 버전2: 사용 가이드 패널 */
-.guide-panel{display:none; margin-bottom:16px;}
-.guide-panel.open{display:block;}
-.guide-item{padding:12px 0; border-bottom:1px solid var(--border);}
-.guide-item:last-child{border-bottom:none;}
-.guide-item b{display:block; font-size:13px; color:var(--navy); margin-bottom:4px;}
-.guide-item span{font-size:12.5px; color:var(--muted); line-height:1.6;}
 /* 사분면 */
 .quad-point{cursor:pointer;}
 .quad-point circle{transition:r .15s, stroke-width .15s;}
@@ -141,7 +134,6 @@ tbody tr:last-child td{border-bottom:none;}
       <input type="file" id="fileInput" accept=".csv">
       <button class="load-btn skyblue" id="exportBtn">완성 파일로 저장</button>
       <button class="load-btn steel" id="exportTeamBtn">현재 선택 필터 내용 저장</button>
-      <button class="load-btn" id="guideToggleBtn" style="background:var(--muted);">사용 가이드</button>
     </div>
   </div>
 
@@ -158,13 +150,6 @@ tbody tr:last-child td{border-bottom:none;}
   </div>
 
   <div class="page" id="pageMain">
-
-  <div class="card guide-panel" id="guidePanel">
-    <div class="panel-head"><h2>대시보드 사용 가이드</h2><span class="panel-note">각 카드가 무엇을 보여주는지 정리했습니다</span></div>
-    <div class="guide-item"><b>공통 집계 기준</b><span>상무·전무·부사장, 우주사업부·우주사업총괄 부서, 근태예외자, 신규입사로 인한 0시간 주차는 모든 지표에서 자동 제외됩니다. 시간은 원본 데이터(분 단위)를 60으로 나눠 시간으로 환산합니다.</span></div>
-    <div class="guide-item"><b>조직건재순</b><span>부서 드롭다운은 실제 조직도 순서(우주사업전략팀 → 우주사업단 → 솔루션사업팀 → 차세대위성체계팀 → 위성체계팀 → 위성본체팀 → 위성탑재체1·2·3팀 → 위성지상체팀 → 위성기계팀 → 제주우주센터)로 정렬되어 있습니다.</span></div>
-    <div id="guideList"></div>
-  </div>
 
   <div class="card">
     <div class="panel-head"><h2>인원 검색</h2><button class="info-icon" data-info="empSearch">ⓘ</button></div>
@@ -744,14 +729,6 @@ document.getElementById('infoModalOverlay').addEventListener('click', (e)=>{
   if(e.target.id==='infoModalOverlay') document.getElementById('infoModalOverlay').classList.remove('open');
 });
 
-/* ---- 버전2: 가이드 패널 토글 ---- */
-document.getElementById('guideList').innerHTML = Object.values(CARD_INFO).map(info=>
-  `<div class="guide-item"><b>${info.title}</b><span>${info.body}</span></div>`
-).join('');
-document.getElementById('guideToggleBtn').addEventListener('click', ()=>{
-  document.getElementById('guidePanel').classList.toggle('open');
-});
-
 /* ===== 페이지 탭 전환 ===== */
 document.querySelectorAll('.page-tab').forEach(tab=>{
   tab.addEventListener('click', ()=>{
@@ -1097,4 +1074,3 @@ if(EMBEDDED_CSV.trim()){ loadFromText(EMBEDDED_CSV, '내장된 데이터'); }
 </script>
 </body>
 </html>
-
