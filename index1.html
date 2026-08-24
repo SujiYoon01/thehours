@@ -299,8 +299,15 @@ document.getElementById('fileInput').addEventListener('change', (e)=>{
     if(bytes[0]===0xFF && bytes[1]===0xFE) text = new TextDecoder('utf-16le').decode(buf);
     else if(bytes[0]===0xFE && bytes[1]===0xFF) text = new TextDecoder('utf-16be').decode(buf);
     else{
-      try{ text = new TextDecoder('utf-8', {fatal:true}).decode(buf); }
-      catch(e1){ try{ text = new TextDecoder('euc-kr').decode(buf); } catch(e2){ text = new TextDecoder('utf-8').decode(buf); } }
+      const probe = new Uint8Array(buf.slice(0, Math.min(400, buf.byteLength)));
+      let zeroOdd=0, zeroEven=0;
+      for(let i=0;i<probe.length;i++){ if(probe[i]===0){ if(i%2===0) zeroEven++; else zeroOdd++; } }
+      if(zeroOdd > probe.length*0.25) text = new TextDecoder('utf-16le').decode(buf);
+      else if(zeroEven > probe.length*0.25) text = new TextDecoder('utf-16be').decode(buf);
+      else{
+        try{ text = new TextDecoder('utf-8', {fatal:true}).decode(buf); }
+        catch(e1){ try{ text = new TextDecoder('euc-kr').decode(buf); } catch(e2){ text = new TextDecoder('utf-8').decode(buf); } }
+      }
     }
     loadFromText(text, `불러온 파일: ${file.name}`);
   };
