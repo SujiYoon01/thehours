@@ -82,36 +82,78 @@ window.__FORCED_DEPT__ = null;     // 필터 저장 시 특정 부서로 고정
 // ===== 상수 =====
 const EXCLUDE_RANK = ['상무','전무','부사장'];
 const EXCLUDE_DEPT = ['우주사업부','우주사업총괄'];
-const COL = {구분:1, 주차:3, 사번:4, 이름:5, 직급:6, 부서명:8, 주확정:16};
+const REQUIRED_COLUMNS = ['구분','주차','사번','이름','직급','부서명','주확정근무시간'];
 
 let STATE = { rows: [] }; // 필터 통과한 유효 행만 저장: {사번,이름,직급,부서,주차,시간}
 
-// ===== CSV 인코딩 자동감지 & 파싱 =====
+// ===== 따옴표(쉼표 포함 값) 안전 처리 CSV 파서 =====
+function parseCSVRaw(text){
+  text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){ if(text[i+1] === '"'){ field+='"'; i++; } else inQuotes = false; }
+      else field += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === ','){ row.push(field); field=''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else field += c;
+    }
+  }
+  if(field.length>0 || row.length>0){ row.push(field); rows.push(row); }
+  if(rows.length===0) return { data:[], fields:[] };
+  const header = rows[0];
+  const data = [];
+  for(let r=1;r<rows.length;r++){
+    if(rows[r].length===1 && rows[r][0]==='') continue;
+    const obj = {};
+    header.forEach((h,idx)=>{ obj[h] = rows[r][idx]!==undefined ? rows[r][idx].trim() : ''; });
+    data.push(obj);
+  }
+  return { data, fields:header };
+}
+
+// ===== 인코딩 자동감지 (UTF-16 BOM / UTF-8 / EUC-KR) =====
 async function readFileAsText(file){
   const buf = await file.arrayBuffer();
-  const utf8 = new TextDecoder('utf-8').decode(buf);
-  if(utf8.includes('\ufffd')) return new TextDecoder('euc-kr').decode(buf);
-  return utf8;
-}
-function extractValidRows(text){
-  const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
-  const rows = [];
-  for(let i=1;i<lines.length;i++){ // 0번째는 헤더
-    const c = lines[i].split(',').map(v=>v.replace(/^"|"$/g,'').trim());
-    if(c.length < COL.주확정+1) continue;
-    const 직급 = c[COL.직급], 부서 = c[COL.부서명], 구분 = c[COL.구분];
-    const 분 = parseFloat(c[COL.주확정]);
-    if(EXCLUDE_RANK.includes(직급)) continue;
-    if(EXCLUDE_DEPT.includes(부서)) continue;
-    if(구분 === '근태예외자') continue;
-    if(!분 || 분 === 0) continue; // 신규입사자 0시간 주차 등 제외
-    rows.push({
-      사번: c[COL.사번], 이름: c[COL.이름], 직급, 부서,
-      주차: c[COL.주차], 시간: Math.round((분/60)*10)/10
-    });
+  const bytes = new Uint8Array(buf.slice(0,4));
+  if(bytes[0]===0x50 && bytes[1]===0x4B){ // 'PK' 시그니처 = 엑셀(xlsx)을 그대로 올린 경우
+    throw new Error('엑셀 파일(.xlsx)을 그대로 올리신 것 같습니다. 엑셀에서 "다른 이름으로 저장 → CSV UTF-8(쉼표로 분리)"로 저장한 뒤 그 CSV 파일을 올려주세요.');
   }
+  if(bytes[0]===0xFF && bytes[1]===0xFE) return new TextDecoder('utf-16le').decode(buf);
+  if(bytes[0]===0xFE && bytes[1]===0xFF) return new TextDecoder('utf-16be').decode(buf);
+  try{ return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
+  catch(e){ try{ return new TextDecoder('euc-kr').decode(buf); } catch(e2){ return new TextDecoder('utf-8').decode(buf); } }
+}
+
+function extractValidRows(text){
+  const { data, fields } = parseCSVRaw(text);
+  const missing = REQUIRED_COLUMNS.filter(c => !fields.includes(c));
+  if(missing.length>0){
+    throw new Error(`CSV에서 다음 열을 찾지 못했습니다: ${missing.join(', ')} (인식된 열: ${fields.join(', ')})`);
+  }
+  const rows = [];
+  data.forEach(r=>{
+    if(!r['사번']) return;
+    const 직급 = r['직급'], 부서 = r['부서명'], 구분 = r['구분'];
+    const 분 = parseFloat(r['주확정근무시간']);
+    if(EXCLUDE_RANK.includes(직급)) return;
+    if(EXCLUDE_DEPT.includes(부서)) return;
+    if(구분 === '근태예외자') return;
+    if(!분 || 분 === 0) return; // 신규입사자 0시간 주차 등 제외
+    rows.push({
+      사번: r['사번'], 이름: r['이름'], 직급, 부서,
+      주차: r['주차'], 시간: Math.round((분/60)*10)/10
+    });
+  });
   return rows;
 }
+
+
 
 // ===== 통계 유틸 =====
 function buildPersonMap(rows){
