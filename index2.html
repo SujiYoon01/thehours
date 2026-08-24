@@ -104,8 +104,7 @@ tbody tr:last-child td{border-bottom:none;}
 .tag.w4{background:var(--coral-bg); color:var(--coral);}
 .tag.w3{background:#FCEFDD; color:#C97A2B;}
 .tag.w2{background:#EEF3F7; color:var(--steel);}
-.risk-card{display:flex; flex-direction:column;}
-.risk-table-wrap{flex:1; min-height:150px; overflow-y:auto;}
+.risk-table-wrap{max-height:420px; overflow-y:auto;}
 .risk-table-wrap thead th{position:sticky; top:0; background:var(--card-bg); z-index:1;}
 /* 사분면 */
 .quad-point{cursor:pointer;}
@@ -218,7 +217,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div id="rankStat"></div>
       </div>
     </div>
-    <div class="card risk-card">
+    <div class="card">
       <div class="panel-head"><h2>위험군 상세 (연속 52시간 이상 근무자)</h2><span class="panel-note">2주 이상 연속 52시간</span></div>
       <div class="risk-table-wrap">
         <table><thead><tr><th>이름</th><th>부서</th><th>직급</th><th>연속 52시간</th><th>최근 주 근무시간</th></tr></thead>
