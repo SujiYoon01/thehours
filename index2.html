@@ -19,6 +19,7 @@ body{margin:0; background:var(--page-bg); color:var(--navy); font-family:'Malgun
 .load-btn{background:var(--navy); color:#fff; border:none; border-radius:999px; padding:10px 18px; font-size:12.5px; font-weight:700; cursor:pointer;}
 .load-btn.coral{background:var(--coral);}
 .load-btn.steel{background:var(--steel);}
+.load-btn.skyblue{background:var(--skyblue);}
 #fileInput{display:none;}
 .filters{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; align-items:center;}
 .filters select{background:#fff; border:1px solid var(--border); border-radius:999px; padding:9px 16px; font-size:12.5px; color:var(--navy); font-weight:600;}
@@ -81,7 +82,7 @@ body{margin:0; background:var(--page-bg); color:var(--navy); font-family:'Malgun
 .bucket-tooltip{position:fixed; display:none; background:var(--navy); color:#fff; font-size:12px; font-weight:600; line-height:1.7; padding:12px 16px; border-radius:10px; max-width:300px; max-height:320px; overflow-y:auto; z-index:100; box-shadow:0 8px 20px rgba(30,51,88,0.25);}
 .legend-dash{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--coral); font-weight:700;}
 .legend-dash .d{width:14px; border-top:2px dashed var(--coral); display:inline-block;}
-.diverge-row{position:relative; height:150px; display:flex; margin-top:10px;}
+.diverge-row{position:relative; height:190px; display:flex; margin-top:10px;}
 .diverge-baseline{position:absolute; left:0; right:0; top:50%; border-top:1px dashed #C9D6E0; z-index:0;}
 .diverge-col{flex:1; position:relative; height:100%;}
 .diverge-bar{position:absolute; left:50%; width:46px; margin-left:-23px; z-index:1;}
@@ -121,7 +122,7 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="topbar-actions">
       <button class="load-btn" id="loadBtn">CSV 불러오기</button>
       <input type="file" id="fileInput" accept=".csv">
-      <button class="load-btn coral" id="exportBtn">완성 파일로 저장</button>
+      <button class="load-btn skyblue" id="exportBtn">완성 파일로 저장</button>
       <button class="load-btn steel" id="exportTeamBtn">현재 선택 필터 내용 저장</button>
     </div>
   </div>
@@ -184,6 +185,14 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="card">
       <div class="panel-head"><h2>부서별 평균 주간 확정근무시간</h2><span class="legend-dash"><span class="d"></span>사업부 전체 평균 <span id="deptOrgAvgLabel">-</span>시간</span></div>
       <div id="deptRanking"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="panel-head"><h2>업무 부하 순위 (근무시간 많은 순)</h2><span class="panel-note" id="loadRankingNote">–</span></div>
+    <div class="risk-table-wrap">
+      <table><thead><tr><th>순위</th><th>이름</th><th>부서</th><th>직급</th><th>근무시간</th></tr></thead>
+      <tbody id="loadRankingBody"></tbody></table>
     </div>
   </div>
 
@@ -389,7 +398,7 @@ function resetDisplay(){
   ['kpiRatio','kpiRatioCount','kpiCount','kpiRisk','kpiAvg','kpiWeekend'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='–'; });
   ['kpiCountSub','kpiRiskSub','kpiAvgSub','kpiWeekendSub'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='&nbsp;'; });
   document.getElementById('donut').style.background = '#EAF0F5';
-  ['deptRanking','bucketPie','weekdayChart','weekendStat','riskTableBody','trendChart','trendLabels'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
+  ['deptRanking','bucketPie','weekdayChart','weekendStat','riskTableBody','trendChart','trendLabels','loadRankingBody','rankStat'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
 }
 
 /* ===== 필터 옵션 ===== */
@@ -524,6 +533,7 @@ function render(){
   renderKpis(latestRows, monthKeys, rows, orgLatestRows, team);
   renderTrend(rows, weekKeys);
   renderDeptRanking(latestRows, orgLatestRows, team);
+  renderLoadRanking(latestRows, team);
   renderBuckets(latestRows);
   renderWeekday(latestRows);
   renderWeekend(latestRows);
@@ -746,6 +756,24 @@ function renderTrend(rows, weekKeysFull){
   }).join('');
 }
 
+function renderLoadRanking(latestRows, team){
+  const sorted = [...latestRows].sort((a,b)=>b._Q-a._Q);
+  let list, note;
+  if(team==='all'){
+    const topN = Math.max(1, Math.ceil(sorted.length*0.1));
+    list = sorted.slice(0, topN);
+    note = `전체 ${sorted.length}명 중 상위 10% (${topN}명) · 특정 부서를 선택하면 그 부서 전원이 표시됩니다`;
+  } else {
+    list = sorted;
+    note = `${team} 전체 ${sorted.length}명`;
+  }
+  document.getElementById('loadRankingNote').textContent = note;
+  document.getElementById('loadRankingBody').innerHTML = list.map((r,idx)=>{
+    const color = colorForHourStep(r._Q);
+    return `<tr><td>${idx+1}</td><td>${r['이름']}</td><td>${r['부서명']}</td><td>${r['직급']}</td><td style="color:${color};font-weight:800;">${fmt1(r._Q)}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="color:var(--muted);">데이터가 없습니다.</td></tr>';
+}
+
 function renderDeptRanking(latestRows, orgLatestRows, activeTeam){
   document.getElementById('deptOrgAvgLabel').textContent = fmt1(orgLatestRows.length?orgLatestRows.reduce((s,r)=>s+r._Q,0)/orgLatestRows.length:0);
   if(activeTeam && activeTeam!=='all'){
@@ -836,16 +864,17 @@ function renderWeekday(latestRows){
   const mean = avgs.reduce((a,b)=>a+b,0)/avgs.length;
   const devs = avgs.map(v=>v-mean);
   const maxAbs = Math.max(...devs.map(Math.abs), 0.05);
-  const HALF=65, GAP=6, LBLH=16, scale = HALF*0.85/maxAbs;
+  const CH=190, BASE=CH/2, HALF=BASE-15, GAP=6, LBLH=16, MINH=6;
+  const scale = HALF*0.92/maxAbs;
   const el = document.getElementById('weekdayChart');
   el.innerHTML = '<div class="diverge-baseline"></div>' + WEEKDAY_COLS.map((d,i)=>{
-    const dev=devs[i], h=Math.abs(dev)*scale;
+    const dev=devs[i], h=Math.max(MINH, Math.abs(dev)*scale);
     if(dev>=0){
-      const bottom=75+h+GAP;
+      const bottom=BASE+h+GAP;
       const color = dev===Math.max(...devs) ? 'var(--navy)' : 'var(--steel)';
       return `<div class="diverge-col"><span class="diverge-val" style="bottom:${bottom}px;">${fmt2(avgs[i])}</span><div class="diverge-bar up" style="height:${h}px;background:${color}"></div></div>`;
     } else {
-      const bottom=Math.max(2,75-h-LBLH);
+      const bottom=Math.max(2,BASE-h-LBLH);
       const color = dev===Math.min(...devs) ? 'var(--coral)' : 'var(--skyblue)';
       return `<div class="diverge-col"><span class="diverge-val" style="bottom:${bottom}px;">${fmt2(avgs[i])}</span><div class="diverge-bar down" style="height:${h}px;background:${color}"></div></div>`;
     }
