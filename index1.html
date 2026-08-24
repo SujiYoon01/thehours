@@ -28,7 +28,8 @@
   /* ===== 카드 ===== */
   .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; margin-top:16px;}
   .card-title{font-size:15px; font-weight:700; color:var(--navy); margin-bottom:12px;}
-  #nameSearch{padding:9px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; width:220px;}
+  #searchCard .search-row{display:flex; gap:6px;}
+  #nameSearch{padding:9px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; width:100%;}
   #btnSearch{padding:9px 16px; border:none; border-radius:6px; background:var(--navy); color:#fff; font-weight:600; cursor:pointer; margin-left:6px;}
   #duplicateNames{margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;}
   .dupBtn{padding:8px 12px; border:1px solid var(--gold2); background:#FFF8EA; color:var(--navy-d); border-radius:6px; cursor:pointer; font-size:13px;}
@@ -65,13 +66,15 @@
   <!-- ===== 인원 검색 카드 ===== -->
   <div class="card" id="searchCard">
     <div class="card-title">인원 검색</div>
-    <input type="text" id="nameSearch" placeholder="이름을 입력하세요">
+    <div class="search-row">
+  <input type="text" id="nameSearch" placeholder="이름을 입력하세요">
+  <button id="btnSearch">검색</button>
+</div>
     <button id="btnSearch">검색</button>
     <div id="duplicateNames"></div>
     <div id="personResult"></div>
   </div>
 </div>
-
 <script>
 window.__EMBEDDED_DATA__ = null;   // 완성파일 저장 시 전체 데이터 삽입
 window.__FORCED_DEPT__ = null;     // 필터 저장 시 특정 부서로 고정
