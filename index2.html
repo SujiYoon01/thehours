@@ -59,7 +59,7 @@ body{margin:0; background:var(--page-bg); color:var(--navy); font-family:'Malgun
 .donut{width:100px; height:100px; border-radius:50%; flex-shrink:0; position:relative; display:flex; align-items:center; justify-content:center;}
 .donut::after{content:""; position:absolute; width:70px; height:70px; border-radius:50%; background:#fff;}
 .donut-label{position:relative; z-index:1; text-align:center;}
-.donut-label b{display:block; font-size:19px; font-weight:800; color:var(--coral);}
+.donut-label b{display:block; font-size:19px; font-weight:800; color:var(--navy);}
 .donut-label span{font-size:10px; color:var(--muted); font-weight:700;}
 .kpi-label{margin:0 0 8px; font-size:12px; color:var(--muted); font-weight:700;}
 .kpi-value{margin:0; font-size:23px; font-weight:800;}
@@ -203,6 +203,10 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="card">
       <div class="panel-head"><h2>주말 근무 현황</h2></div>
       <div class="weekend-stat" id="weekendStat"></div>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+        <div class="panel-head" style="margin-bottom:10px;"><h2 style="font-size:13px;">직급별 평균 근무시간</h2></div>
+        <div id="rankStat"></div>
+      </div>
     </div>
     <div class="card">
       <div class="panel-head"><h2>위험군 상세 (연속 52시간 이상 근무자)</h2><span class="panel-note">2주 이상 연속 52시간</span></div>
@@ -523,6 +527,7 @@ function render(){
   renderBuckets(latestRows);
   renderWeekday(latestRows);
   renderWeekend(latestRows);
+  renderRankStat(latestRows);
   renderRiskTable(rows, weekKeys, latestWeek);
 
   CURRENT_LATEST_ROWS = latestRows;
@@ -693,7 +698,7 @@ function renderKpis(latestRows, monthKeys, allRows, orgLatestRows, team){
     deltaTxt += `. 사업부 전체 ${fmt1(orgTotal?orgOver/orgTotal*100:0)}%`;
   }
   document.getElementById('kpiCountSub').innerHTML = deltaTxt;
-  document.getElementById('donut').style.background = `conic-gradient(var(--coral) 0% ${ratio}%, #EAF0F5 ${ratio}% 100%)`;
+  document.getElementById('donut').style.background = `conic-gradient(var(--navy) 0% ${ratio}%, #EAF0F5 ${ratio}% 100%)`;
 
   const avg = total ? latestRows.reduce((s,r)=>s+r._Q,0)/total : 0;
   document.getElementById('kpiAvg').innerHTML = fmt1(avg)+'<span class="unit">시간</span>';
@@ -881,6 +886,25 @@ function renderWeekend(latestRows){
       tooltip.style.left=(e.clientX+16)+'px'; tooltip.style.top=(e.clientY+16)+'px';
     });
   });
+}
+
+function renderRankStat(latestRows){
+  const byRank = {};
+  latestRows.forEach(r=>{
+    const rk = r['직급']; if(!rk) return;
+    (byRank[rk]=byRank[rk]||[]).push(r._Q);
+  });
+  const items = Object.entries(byRank).map(([rank,arr])=>({
+    rank, avg: arr.reduce((a,b)=>a+b,0)/arr.length, n: arr.length
+  })).sort((a,b)=>b.avg-a.avg);
+  const axisMax = Math.max(56, ...items.map(i=>i.avg*1.05), 1);
+  document.getElementById('rankStat').innerHTML = items.map(i=>{
+    const pct = (i.avg/axisMax*100).toFixed(1);
+    const color = colorForHourStep(i.avg);
+    return `<div class="hbar-row"><div class="hbar-name">${i.rank} (${i.n}명)</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span></div>`;
+  }).join('') || '<p class="footer-note">데이터가 없습니다.</p>';
 }
 
 function renderRiskTable(rows, weekKeys, latest){
