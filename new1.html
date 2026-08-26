@@ -238,15 +238,6 @@ tbody tr:last-child td{border-bottom:none;}
       </div>
     </div>
   </div>
-
-  <div class="card">
-    <div class="panel-head"><h2>위험군 변동 (전월 대비)</h2><button class="info-icon" data-info="riskChange">ⓘ</button><span class="panel-note" id="riskChangeNote">전월 데이터를 불러오면 표시됩니다</span></div>
-    <div class="row2b" style="margin-bottom:0;">
-      <div><p style="margin:0 0 10px;font-size:12.5px;font-weight:800;color:var(--coral);">위험군 진입</p><div id="riskNewList"></div></div>
-      <div><p style="margin:0 0 10px;font-size:12.5px;font-weight:800;color:var(--skyblue);">위험군 이탈</p><div id="riskExitList"></div></div>
-    </div>
-  </div>
-
   <p class="footer-note">※ 임원급(상무·전무·부사장), 우주사업부·우주사업총괄 부서, 근태예외자, 0시간 신규입사 주차는 집계에서 자동 제외됩니다. (시간은 원본 데이터 기준 분 단위 → 시간 환산, 소수점 첫째자리)</p>
 
   </div><!-- /pageMain -->
@@ -757,7 +748,6 @@ const CARD_INFO = {
   weekend: { title:'주말 근무 현황', body:'토요일/일요일 각각 근무한 인원수와 평균 근무시간입니다. 행을 클릭하면 그 요일에 근무한 인원 명단이 부서별로 뜹니다.' },
   rankStat: { title:'직급별 평균 근무시간', body:'선택한 필터 기준, 직급(사원/대리/과장 등)별 평균 근무시간을 근무시간 많은 순으로 보여줍니다. 특정 직급에 업무 부담이 몰려있는지 확인할 수 있습니다.' },
   risk: { title:'위험군 상세', body:'2주 이상 연속으로 52시간 이상 근무한 인원의 명단입니다. "연속 52시간" 열은 몇 주 연속인지를, "최근 주 근무시간"은 가장 최근 주차의 실제 근무시간을 보여줍니다.' },
-  riskChange: { title:'위험군 변동 (전월 대비)', body:'"전월 CSV 불러오기"로 지난달 데이터를 첨부하면, 이번 달 새로 위험군에 들어온 인원(위험군 진입)과 지난달엔 위험군이었지만 이번 달엔 벗어난 인원(위험군 이탈)을 비교해서 보여줍니다.' },
   quadrant: { title:'근무시간 편차 사분면 분포', body:'x축은 평균 근무시간, y축은 기준 평균 대비 편차입니다. 부서 전체를 선택하면 점 하나가 부서 하나이고, 특정 부서를 선택하면 근무시간이 비슷한 사람끼리 묶여 점으로 표시됩니다. 오른쪽 위(근무시간도 길고 평균보다도 많이 높은)에 있는 점이 우선적으로 살펴볼 대상입니다. 점을 클릭하면 명단이 뜹니다.' }
 };
 
@@ -1093,14 +1083,6 @@ function renderRiskTable(combinedRows, combinedWeekKeys, latest, currentRows, pr
       if(streak>=2){ prevRiskCount++; prevRiskIds.add(id); }
     });
   }
-  const currentRiskIds = new Set(risk.map(r=>r.id));
-  const newEntries = (prevRows&&prevRows.length) ? risk.filter(r=>!prevRiskIds.has(r.id)) : [];
-  const exits = (prevRows&&prevRows.length) ? [...prevRiskIds].filter(id=>!currentRiskIds.has(id)).map(id=>({id,...byEmp[id]})).filter(r=>r.name) : [];
-  const listHtml = list => list.length ? list.map(r=>`<p style="margin:0 0 8px;font-size:12.5px;font-weight:600;">${r.name} <span style="color:var(--muted);">· ${r.team} · ${r.rank}</span></p>`).join('') : '<p style="margin:0;font-size:12.5px;color:var(--muted);">해당자 없음</p>';
-  document.getElementById('riskNewList').innerHTML = listHtml(newEntries);
-  document.getElementById('riskExitList').innerHTML = listHtml(exits);
-  document.getElementById('riskChangeNote').textContent = (prevRows&&prevRows.length) ? `신규 ${newEntries.length}명 · 이탈 ${exits.length}명` : '전월 데이터를 불러오면 표시됩니다';
-
   document.getElementById('kpiRisk').innerHTML = risk.length+'<span class="unit">명</span>';
   const streak4 = risk.filter(r=>r.streak>=4).length;
   const subParts = [];
