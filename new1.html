@@ -123,12 +123,24 @@ tbody tr:last-child td{border-bottom:none;}
 .quad-legend-item{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-weight:700;}
 .quad-legend-item .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
 .quad-tooltip{position:fixed; display:none; background:var(--navy); color:#fff; font-size:12px; font-weight:600; line-height:1.7; padding:12px 16px; border-radius:10px; max-width:300px; max-height:280px; overflow-y:auto; z-index:100; box-shadow:0 8px 20px rgba(30,51,88,0.25);}
+/* 위험군 변동 카드 */
+.riskchange-team-row{border:1px solid var(--border); border-radius:14px; padding:10px 14px; margin-bottom:8px;}
+.riskchange-team-head{display:flex; align-items:center; justify-content:space-between; cursor:pointer;}
+.riskchange-team-name{font-size:12.5px; font-weight:700;}
+.riskchange-team-right{display:flex; align-items:center; gap:8px;}
+.riskchange-team-count{font-size:14px; font-weight:800;}
+.riskchange-caret{width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid var(--muted); cursor:pointer; transition:transform .15s;}
+.riskchange-caret.open{transform:rotate(180deg);}
+.riskchange-team-detail{display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);}
+.riskchange-team-detail.open{display:block;}
+.riskchange-person{font-size:12px; font-weight:600; margin:0 0 6px; color:var(--navy);}
+.riskchange-person span{color:var(--muted); font-weight:600;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="topbar">
-    <h1>🛰️ 우주사업총괄 근무실적 현황</h1>
+    <div class="card" style="margin-bottom:0; padding:14px 20px;"><h1 style="font-size:20px;">🛰️ 우주사업총괄 근무실적 현황</h1></div>
     <div class="topbar-actions">
       <button class="load-btn" id="loadBtn">CSV 불러오기</button>
       <input type="file" id="fileInput" accept=".csv">
@@ -225,10 +237,6 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="card">
       <div class="panel-head"><h2>주말 근무 현황</h2><button class="info-icon" data-info="weekend">ⓘ</button></div>
       <div class="weekend-stat" id="weekendStat"></div>
-      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
-        <div class="panel-head" style="margin-bottom:10px;"><h2 style="font-size:13px;">직급별 평균 근무시간</h2><button class="info-icon" data-info="rankStat">ⓘ</button></div>
-        <div id="rankStat"></div>
-      </div>
     </div>
     <div class="card">
       <div class="panel-head"><h2>위험군 상세 (연속 52시간 이상 근무자)</h2><button class="info-icon" data-info="risk">ⓘ</button><span class="panel-note">2주 이상 연속 52시간</span></div>
@@ -238,7 +246,14 @@ tbody tr:last-child td{border-bottom:none;}
       </div>
     </div>
   </div>
-  <p class="footer-note">※ 임원급(상무·전무·부사장), 우주사업부·우주사업총괄 부서, 근태예외자, 0시간 신규입사 주차는 집계에서 자동 제외됩니다. (시간은 원본 데이터 기준 분 단위 → 시간 환산, 소수점 첫째자리)</p>
+
+  <div class="card">
+    <div class="panel-head"><h2>위험군 변동 (전월 대비)</h2><button class="info-icon" data-info="riskChange">ⓘ</button><span class="panel-note" id="riskChangeNote">전월 데이터를 불러오면 표시됩니다</span></div>
+    <div class="row2b" style="margin-bottom:0;">
+      <div><p style="margin:0 0 10px;font-size:12.5px;font-weight:800;color:var(--coral);">위험군 진입</p><div id="riskNewList"></div></div>
+      <div><p style="margin:0 0 10px;font-size:12.5px;font-weight:800;color:var(--skyblue);">위험군 이탈</p><div id="riskExitList"></div></div>
+    </div>
+  </div>
 
   </div><!-- /pageMain -->
 
@@ -445,7 +460,7 @@ function resetDisplay(){
   ['kpiRatio','kpiRatioCount','kpiCount','kpiRisk','kpiAvg','kpiWeekend'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='–'; });
   ['kpiCountSub','kpiRiskSub','kpiAvgSub','kpiWeekendSub'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='&nbsp;'; });
   document.getElementById('donut').style.background = '#EAF0F5';
-  ['deptRanking','bucketPie','weekdayChart','weekendStat','riskTableBody','trendChart','trendLabels','loadRankingBody','rankStat'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
+  ['deptRanking','bucketPie','weekdayChart','weekendStat','riskTableBody','trendChart','trendLabels','loadRankingBody'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
 }
 
 /* ===== 필터 옵션 ===== */
@@ -470,9 +485,13 @@ function buildMonthlyRows(sourceRows, targetMonth){
   return Object.values(byEmp).map(e=>{
     const n = e.weeks.length;
     const avgMin = f => e.weeks.reduce((s,w)=>s+num(w[f]),0)/n;
+    const avgMinWeekday = f => {
+      const vals = e.weeks.map(w=>num(w[f])).filter(v=>v>0);
+      return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+    };
     return {
       '이름':e.name, '직급':e.rank, '부서명':e.team,
-      '월':avgMin('월'), '화':avgMin('화'), '수':avgMin('수'), '목':avgMin('목'), '금':avgMin('금'),
+      '월':avgMinWeekday('월'), '화':avgMinWeekday('화'), '수':avgMinWeekday('수'), '목':avgMinWeekday('목'), '금':avgMinWeekday('금'),
       '토':avgMin('토'), '일':avgMin('일'),
       _Q: e.weeks.reduce((s,w)=>s+w._Q,0)/n
     };
@@ -588,16 +607,16 @@ function render(){
   }
 
   renderKpis(latestRows, monthKeys, rows, orgLatestRows, team, prevLatestRows);
-  renderTrend(rows, weekKeys);
+  renderTrend(rows, weekKeys, team);
   renderDeptRanking(latestRows, orgLatestRows, team, prevLatestRows);
   renderLoadRanking(latestRows, team);
   renderBuckets(latestRows);
   renderWeekday(latestRows);
   renderWeekend(latestRows);
-  renderRankStat(latestRows);
   const combinedRows = rows.concat(prevRows);
   const combinedWeekKeys = [...new Set(combinedRows.map(r=>r._week))].sort();
   renderRiskTable(combinedRows, combinedWeekKeys, latestWeek, rows, prevRows);
+  renderRiskChangeByTeam(rows, prevRows, combinedRows, combinedWeekKeys, latestWeek, team);
 
   CURRENT_LATEST_ROWS = latestRows;
   CURRENT_TEAM = team;
@@ -740,14 +759,14 @@ const CARD_INFO = {
   kpiRisk: { title:'위험군 (2주 이상 연속 52시간)', body:'특정 주가 아니라, 최근 주차부터 거슬러 올라가며 연속으로 몇 주째 52시간 이상을 찍었는지를 봅니다. 2주 연속부터 위험군으로 집계하며, 아래 "위험군 상세" 표에서 개인별 명단을 확인할 수 있습니다.' },
   kpiAvg: { title:'평균 주간 확정근무시간', body:'선택한 필터(부서 전체 또는 특정 부서) 기준, 이번 달 인원별 평균을 다시 전체 평균낸 값입니다. 법정 상한 52시간까지 얼마나 여유가 있는지 함께 표시됩니다.' },
   kpiWeekend: { title:'주말 근무 발생 인원', body:'이번 달 중 토요일 또는 일요일에 근무기록이 1분이라도 있는 인원 수입니다. 토요일/일요일 각각의 인원수와, 두 요일 모두 근무한 인원(중복)도 함께 보여줍니다.' },
-  trend: { title:'주별 52시간 이상 근무자 비율 추이', body:'선택한 필터 기준, 각 주차마다 52시간 이상 근무한 인원의 비율(%)과 인원수를 선 그래프로 보여줍니다. 특정 주에 몰린 초과근무 패턴을 파악하는 용도입니다.' },
+  trend: { title:'주별 52시간 근무자 비율 추이', body:'선택한 필터 기준, 각 주차마다 52시간 이상 근무한 인원의 비율(%)과 인원수를 선 그래프로 보여줍니다. 특정 부서로 필터를 걸었을 때는 각 점을 클릭하면 해당 인원의 이름과 직급을 확인할 수 있습니다.' },
   deptRanking: { title:'부서별 평균 주간 확정근무시간', body:'부서 전체 필터에서는 전 부서를 근무시간 많은 순으로 비교합니다. 특정 부서를 선택하면 그 부서 평균과 사업부 전체 평균, 두 막대만 비교해서 보여줍니다. 점선은 사업부 전체 평균 위치입니다.' },
   loadRanking: { title:'근무시간 현황', body:'부서 전체 필터에서는 순위를 매기지 않고, 52시간 이상 근무한 인원 전원을 조직 순서(조직건재순)대로 나열합니다. 특정 부서를 선택하면 그 부서 인원 전체를 근무시간이 많은 순으로 순위를 매겨 보여줍니다 — 부서장이 "우리 부서 안에서 누구에게 일이 몰리는지" 확인하는 용도입니다.' },
   bucket: { title:'주 근무시간대별 인원 분포', body:'인원들을 근무시간 구간(40~42시간, 42~44시간 …)별로 나눠 파이차트로 보여줍니다. 조각을 클릭하면 그 구간에 속한 인원 명단이 부서별로 뜹니다.' },
-  weekday: { title:'평일 요일별 근무시간 편차', body:'월~금 각 요일의 평균 근무시간이, 평일 전체 평균보다 얼마나 많거나(위쪽 막대) 적은지(아래쪽 막대)를 보여줍니다. 특정 요일에 업무가 몰리는 패턴이 있는지 확인하는 용도입니다.' },
+  weekday: { title:'평일 요일별 근무시간 편차', body:'월~금 각 요일의 평균 근무시간이, 평일 전체 평균보다 얼마나 많거나(위쪽 막대) 적은지(아래쪽 막대)를 보여줍니다. 특정 요일에 업무가 몰리는 패턴이 있는지 확인하는 용도입니다. 근태예외/입퇴사 등으로 특정 요일 근무시간이 0으로 잡힌 주차는 그 요일 평균 계산에서 제외됩니다.' },
   weekend: { title:'주말 근무 현황', body:'토요일/일요일 각각 근무한 인원수와 평균 근무시간입니다. 행을 클릭하면 그 요일에 근무한 인원 명단이 부서별로 뜹니다.' },
-  rankStat: { title:'직급별 평균 근무시간', body:'선택한 필터 기준, 직급(사원/대리/과장 등)별 평균 근무시간을 근무시간 많은 순으로 보여줍니다. 특정 직급에 업무 부담이 몰려있는지 확인할 수 있습니다.' },
   risk: { title:'위험군 상세', body:'2주 이상 연속으로 52시간 이상 근무한 인원의 명단입니다. "연속 52시간" 열은 몇 주 연속인지를, "최근 주 근무시간"은 가장 최근 주차의 실제 근무시간을 보여줍니다.' },
+  riskChange: { title:'위험군 변동 (전월 대비)', body:'"전월 CSV 불러오기"로 지난달 데이터를 첨부하면, 팀별로 이번 달 새로 위험군에 들어온 인원 수(위험군 진입)와 지난달엔 위험군이었지만 이번 달엔 벗어난 인원 수(위험군 이탈)를 조직건재순으로 보여줍니다. 인원수 옆 화살표를 누르면 이름과 직급이 표시됩니다. 부서를 필터링하면 해당 부서만 표시됩니다.' },
   quadrant: { title:'근무시간 편차 사분면 분포', body:'x축은 평균 근무시간, y축은 기준 평균 대비 편차입니다. 부서 전체를 선택하면 점 하나가 부서 하나이고, 특정 부서를 선택하면 근무시간이 비슷한 사람끼리 묶여 점으로 표시됩니다. 오른쪽 위(근무시간도 길고 평균보다도 많이 높은)에 있는 점이 우선적으로 살펴볼 대상입니다. 점을 클릭하면 명단이 뜹니다.' }
 };
 
@@ -821,13 +840,13 @@ function renderKpis(latestRows, monthKeys, allRows, orgLatestRows, team, prevLat
   document.getElementById('kpiWeekendSub').textContent = `토 ${sat.length} · 일 ${sun.length} · 중복 ${both}`;
 }
 
-function renderTrend(rows, weekKeysFull){
+function renderTrend(rows, weekKeysFull, team){
   const svg = document.getElementById('trendChart');
   const weekKeys = weekKeysFull.slice(-8);
   const stats = weekKeys.map(wk=>{
     const wr = rows.filter(r=>r._week===wk);
-    const over = wr.filter(r=>r._Q>=52).length;
-    return { ratio: wr.length?over/wr.length*100:0, count:over };
+    const overRows = wr.filter(r=>r._Q>=52);
+    return { ratio: wr.length?overRows.length/wr.length*100:0, count:overRows.length, people:overRows };
   });
   const ratios = stats.map(s=>s.ratio);
   const dataMin=Math.min(...ratios), dataMax=Math.max(...ratios);
@@ -846,13 +865,36 @@ function renderTrend(rows, weekKeysFull){
     const dx = i===0?4:i===pts.length-1?-4:0;
     return `<text x="${p[0]+dx}" y="${p[1]+dy}" font-size="11" fill="var(--steel)" font-weight="700" text-anchor="${anchor}">(${fmt1(stats[i].ratio)}%, ${stats[i].count}명)</text>`;
   }).join('');
+  const clickable = team!=='all';
   svg.innerHTML = `<polyline fill="none" stroke="var(--steel)" stroke-width="3" points="${line}"/>
-    ${pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${i===pts.length-1?5:4}" fill="var(--navy)" ${i===pts.length-1?'stroke="#fff" stroke-width="2"':''}/>`).join('')}
+    ${pts.map((p,i)=>`<circle class="trend-pt" data-idx="${i}" cx="${p[0]}" cy="${p[1]}" r="${i===pts.length-1?5:4}" fill="var(--navy)" ${i===pts.length-1?'stroke="#fff" stroke-width="2"':''} ${clickable?'style="cursor:pointer;"':''}/>`).join('')}
     ${labels}`;
   document.getElementById('trendLabels').innerHTML = weekKeys.map(wk=>{
     const [yyyymm,wn]=wk.split('-'); const mm=yyyymm.slice(4,6);
     return `<span>${mm}/${parseInt(wn,10)}주</span>`;
   }).join('');
+
+  const tooltip = document.getElementById('bucketTooltip');
+  if(clickable){
+    svg.querySelectorAll('.trend-pt').forEach(pt=>{
+      pt.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const idx = +pt.dataset.idx;
+        const alreadyOpen = tooltip.style.display==='block' && tooltip.dataset.trendIdx===String(idx);
+        if(alreadyOpen){ tooltip.style.display='none'; return; }
+        tooltip.dataset.trendIdx = idx;
+        const wk = weekKeys[idx];
+        const [yyyymm,wn]=wk.split('-'); const mm=yyyymm.slice(4,6);
+        const people = stats[idx].people;
+        const listHtml = people.length ? people.map(p=>`${p['이름']} (${p['직급']}) — ${fmt1(p._Q)}시간`).join('<br>') : '해당자 없음';
+        tooltip.innerHTML = `<b>${mm}/${parseInt(wn,10)}주 · 52시간 이상 ${people.length}명</b><br>${listHtml}`;
+        tooltip.style.display='block';
+        tooltip.style.left=(e.clientX+16)+'px'; tooltip.style.top=(e.clientY+16)+'px';
+      });
+    });
+    tooltip.addEventListener('click', e=>e.stopPropagation());
+    document.addEventListener('click', ()=>{ tooltip.style.display='none'; });
+  }
 }
 
 function renderLoadRanking(latestRows, team){
@@ -899,9 +941,10 @@ function renderDeptRanking(latestRows, orgLatestRows, activeTeam, prevLatestRows
     const axisMax = Math.max(56, teamAvg*1.05, orgAvg*1.05);
     const items = [{label:activeTeam, avg:teamAvg},{label:'사업부 전체 평균', avg:orgAvg}];
     document.getElementById('deptRanking').innerHTML = items.map(i=>{
-      const pct=(i.avg/axisMax*100).toFixed(1), color=colorForHourStep(i.avg);
+      const pct=(i.avg/axisMax*100).toFixed(2), color=colorForHourStep(i.avg);
+      const tick = i.label==='사업부 전체 평균' ? '' : `<div class="ceiling-tick" style="left:${(orgAvg/axisMax*100).toFixed(2)}%"></div>`;
       return `<div class="hbar-row"><div class="hbar-name">${i.label}</div>
-        <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div><div class="ceiling-tick" style="left:${(orgAvg/axisMax*100).toFixed(2)}%"></div></div>
+        <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div>${tick}</div>
         <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span>${deltaHtml(i.avg, prevAvgFor(i.label))}</div>`;
     }).join('');
     return;
@@ -912,7 +955,7 @@ function renderDeptRanking(latestRows, orgLatestRows, activeTeam, prevLatestRows
   const orgAvg = orgLatestRows.length ? orgLatestRows.reduce((s,r)=>s+r._Q,0)/orgLatestRows.length : 0;
   const axisMax = Math.max(56, orgAvg*1.05, ...items.map(i=>i.avg*1.05));
   document.getElementById('deptRanking').innerHTML = items.map(i=>{
-    const pct=(i.avg/axisMax*100).toFixed(1), color=colorForHourStep(i.avg);
+    const pct=(i.avg/axisMax*100).toFixed(2), color=colorForHourStep(i.avg);
     return `<div class="hbar-row"><div class="hbar-name">${i.team}</div>
       <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div><div class="ceiling-tick" style="left:${(orgAvg/axisMax*100).toFixed(2)}%"></div></div>
       <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span>${deltaHtml(i.avg, prevAvgFor(i.team))}</div>`;
@@ -1034,25 +1077,6 @@ function renderWeekend(latestRows){
   });
 }
 
-function renderRankStat(latestRows){
-  const byRank = {};
-  latestRows.forEach(r=>{
-    const rk = r['직급']; if(!rk) return;
-    (byRank[rk]=byRank[rk]||[]).push(r._Q);
-  });
-  const items = Object.entries(byRank).map(([rank,arr])=>({
-    rank, avg: arr.reduce((a,b)=>a+b,0)/arr.length, n: arr.length
-  })).sort((a,b)=>b.avg-a.avg);
-  const axisMax = Math.max(56, ...items.map(i=>i.avg*1.05), 1);
-  document.getElementById('rankStat').innerHTML = items.map(i=>{
-    const pct = (i.avg/axisMax*100).toFixed(1);
-    const color = colorForHourStep(i.avg);
-    return `<div class="hbar-row"><div class="hbar-name">${i.rank} (${i.n}명)</div>
-      <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div></div>
-      <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span></div>`;
-  }).join('') || '<p class="footer-note">데이터가 없습니다.</p>';
-}
-
 function renderRiskTable(combinedRows, combinedWeekKeys, latest, currentRows, prevRows){
   const currentIds = new Set(currentRows.map(r=>r['사번']));
   const byEmp={};
@@ -1083,6 +1107,7 @@ function renderRiskTable(combinedRows, combinedWeekKeys, latest, currentRows, pr
       if(streak>=2){ prevRiskCount++; prevRiskIds.add(id); }
     });
   }
+
   document.getElementById('kpiRisk').innerHTML = risk.length+'<span class="unit">명</span>';
   const streak4 = risk.filter(r=>r.streak>=4).length;
   const subParts = [];
@@ -1095,6 +1120,88 @@ function renderRiskTable(combinedRows, combinedWeekKeys, latest, currentRows, pr
     <tr><td>${r.name}</td><td>${r.team}</td><td>${r.rank}</td>
       <td><span class="tag ${tagClass(r.streak)}">${r.streak}주</span></td><td>${fmt1(r.latestQ||0)}</td></tr>`
   ).join('') || '<tr><td colspan="5" style="color:var(--muted);">해당자가 없습니다.</td></tr>';
+}
+
+/* ===== 위험군 변동 (전월 대비) - 팀별 ===== */
+function computeRiskIdSet(rowsForPeriod){
+  const weekKeysP = [...new Set(rowsForPeriod.map(r=>r._week))].sort();
+  const reversed = [...weekKeysP].reverse();
+  const byEmp = {};
+  rowsForPeriod.forEach(r=>{
+    if(!byEmp[r['사번']]) byEmp[r['사번']] = { name:r['이름'], team:r['부서명'], rank:r['직급'], weeks:{} };
+    byEmp[r['사번']].weeks[r._week] = r._Q;
+  });
+  const riskMap = new Map();
+  Object.entries(byEmp).forEach(([id,e])=>{
+    let streak=0;
+    for(const wk of reversed){ const q=e.weeks[wk]; if(q!==undefined && q>=52) streak++; else break; }
+    if(streak>=2) riskMap.set(id, { id, name:e.name, team:e.team, rank:e.rank });
+  });
+  return riskMap;
+}
+function renderRiskChangeByTeam(currentRows, prevRows, combinedRows, combinedWeekKeys, latestWeek, activeTeam){
+  const note = document.getElementById('riskChangeNote');
+  const newListEl = document.getElementById('riskNewList');
+  const exitListEl = document.getElementById('riskExitList');
+  if(!prevRows || !prevRows.length){
+    note.textContent = '전월 데이터를 불러오면 표시됩니다';
+    newListEl.innerHTML=''; exitListEl.innerHTML='';
+    return;
+  }
+  const currentRiskMap = computeRiskIdSet(currentRows);
+  const prevRiskMap = computeRiskIdSet(prevRows);
+
+  const newEntries = [...currentRiskMap.values()].filter(p=>!prevRiskMap.has(p.id));
+  const exits = [...prevRiskMap.values()].filter(p=>!currentRiskMap.has(p.id));
+
+  let teams = sortByOrgOrder([...new Set([...newEntries, ...exits].map(p=>p.team).filter(Boolean).concat(ORG_ORDER))]);
+  teams = ORG_ORDER.filter(t=>true); // 기본은 조직건재순 전체 팀
+  if(activeTeam && activeTeam!=='all') teams = teams.filter(t=>t===activeTeam);
+
+  const byTeamList = (list) => {
+    const map = {};
+    list.forEach(p=>{ (map[p.team]=map[p.team]||[]).push(p); });
+    return map;
+  };
+  const newByTeam = byTeamList(newEntries);
+  const exitByTeam = byTeamList(exits);
+
+  const renderColumn = (byTeam, colorVar, colId) => {
+    return teams.map(t=>{
+      const list = byTeam[t] || [];
+      const uid = `${colId}_${t.replace(/[^a-zA-Z0-9]/g,'')}`;
+      const peopleHtml = list.length
+        ? list.map(p=>`<p class="riskchange-person">${p.name} <span>· ${p.rank}</span></p>`).join('')
+        : `<p class="riskchange-person" style="color:var(--muted);">해당자 없음</p>`;
+      return `<div class="riskchange-team-row">
+        <div class="riskchange-team-head" data-target="${uid}">
+          <span class="riskchange-team-name">${t}</span>
+          <span class="riskchange-team-right">
+            <span class="riskchange-team-count" style="color:${colorVar}">${list.length}명</span>
+            <span class="riskchange-caret" data-target="${uid}"></span>
+          </span>
+        </div>
+        <div class="riskchange-team-detail" id="${uid}">${peopleHtml}</div>
+      </div>`;
+    }).join('') || '<p class="footer-note">표시할 팀이 없습니다.</p>';
+  };
+
+  newListEl.innerHTML = renderColumn(newByTeam, 'var(--coral)', 'new');
+  exitListEl.innerHTML = renderColumn(exitByTeam, 'var(--skyblue)', 'exit');
+  note.textContent = `신규 ${newEntries.length}명 · 이탈 ${exits.length}명`;
+
+  [...newListEl.querySelectorAll('.riskchange-team-head, .riskchange-caret'),
+   ...exitListEl.querySelectorAll('.riskchange-team-head, .riskchange-caret')].forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const targetId = el.dataset.target;
+      const detail = document.getElementById(targetId);
+      const caret = (el.classList.contains('riskchange-team-head') ? el : el).closest('.riskchange-team-row').querySelector('.riskchange-caret');
+      if(!detail) return;
+      const isOpen = detail.classList.contains('open');
+      detail.classList.toggle('open', !isOpen);
+      if(caret) caret.classList.toggle('open', !isOpen);
+    });
+  });
 }
 
 /* ===== 저장(내보내기) ===== */
