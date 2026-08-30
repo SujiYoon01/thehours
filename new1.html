@@ -945,8 +945,7 @@ function renderDeptRanking(latestRows, orgLatestRows, activeTeam, prevLatestRows
       const tick = i.label==='사업부 전체 평균' ? '' : `<div class="ceiling-tick" style="left:${(orgAvg/axisMax*100).toFixed(2)}%"></div>`;
       return `<div class="hbar-row"><div class="hbar-name">${i.label}</div>
         <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div>${tick}</div>
-        <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span>${deltaHtml(i.avg, prevAvgFor(i.label))}</div>`;
-    }).join('');
+     <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span><span style="display:inline-block;min-width:90px;">${deltaHtml(i.avg, prevAvgFor(i.label))}</span></div>`;
     return;
   }
   const byTeam={};
@@ -1066,7 +1065,7 @@ function renderWeekend(latestRows){
         const byTeam = {};
         list.forEach(r=>{ const t=r['부서명']||'기타'; (byTeam[t]=byTeam[t]||[]).push(r); });
         const teamBlocks = Object.keys(byTeam).sort().map(t=>{
-          const rows = byTeam[t].map(r=>`${r['이름']}(${r['직급']}) — ${fmt1(numH(r[wd]))}시간`).join('<br>');
+          const rows = byTeam[t].map(r=>`${r['이름']}(${r['직급']}).join('<br>');
           return `<b>${t}</b><br>${rows}`;
         }).join('<br><br>');
         tooltip.innerHTML = `<b>${wd}요일 근무 (${list.length}명)</b><br><br>${teamBlocks}`;
