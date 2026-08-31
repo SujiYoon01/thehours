@@ -1048,32 +1048,32 @@ function renderWeekend(latestRows){
   const sun = latestRows.filter(r=>numH(r['일'])>0);
   const satAvg = sat.length ? sat.reduce((s,r)=>s+numH(r['토']),0)/sat.length : 0;
   const sunAvg = sun.length ? sun.reduce((s,r)=>s+numH(r['일']),0)/sun.length : 0;
-  document.getElementById('weekendStat').innerHTML = `
+ document.getElementById('weekendStat').innerHTML = `
     <div class="weekend-row" data-wd="토" style="cursor:pointer;"><div><div class="wname">토요일 근무</div><div class="wsub">이번 달 평균 ${fmt1(satAvg)}시간 · 클릭 시 명단</div></div><div class="wnum">${sat.length}명</div></div>
-    <div class="weekend-row" data-wd="일" style="cursor:pointer;"><div><div class="wname">일요일 근무</div><div class="wsub">이번 달 평균 ${fmt1(sunAvg)}시간 · 클릭 시 명단</div></div><div class="wnum">${sun.length}명</div></div>`;
+    <div class="weekend-row" data-wd="일" style="cursor:pointer;"><div><div class="wname">일요일 근무</div><div class="wsub">이번 달 평균 ${fmt1(sunAvg)}시간 · 클릭 시 명단</div></div><div class="wnum">${sun.length}명</div></div>
+    <div id="weekendDetail"></div>`;
 
-  const tooltip = document.getElementById('bucketTooltip');
+  const detailEl = document.getElementById('weekendDetail');
   const dataMap = { '토':sat, '일':sun };
   document.querySelectorAll('#weekendStat .weekend-row').forEach(row=>{
     row.addEventListener('click', (e)=>{
       e.stopPropagation();
       const wd = row.dataset.wd;
-      const alreadyOpen = tooltip.style.display==='block' && tooltip.dataset.wd===wd;
-      if(alreadyOpen){ tooltip.style.display='none'; return; }
-      tooltip.dataset.wd = wd;
+      const alreadyOpen = detailEl.dataset.wd===wd;
+      if(alreadyOpen){ detailEl.innerHTML=''; detailEl.removeAttribute('data-wd'); return; }
+      detailEl.dataset.wd = wd;
       const list = dataMap[wd];
-      if(!list.length){ tooltip.innerHTML = `<b>${wd}요일 근무 인원 없음</b>`; }
-      else{
+      if(!list.length){
+        detailEl.innerHTML = `<p style="margin:10px 0 0;font-size:12px;color:var(--muted);">${wd}요일 근무 인원 없음</p>`;
+      } else {
         const byTeam = {};
         list.forEach(r=>{ const t=r['부서명']||'기타'; (byTeam[t]=byTeam[t]||[]).push(r); });
         const teamBlocks = Object.keys(byTeam).sort().map(t=>{
           const rows = byTeam[t].map(r=>`${r['이름']}(${r['직급']})`).join('<br>');
-          return `<b>${t}</b><br>${rows}`;
-        }).join('<br><br>');
-        tooltip.innerHTML = `<b>${wd}요일 근무 (${list.length}명)</b><br><br>${teamBlocks}`;
+          return `<p style="margin:0 0 4px;font-size:12px;font-weight:800;color:var(--navy);">${t}</p><p style="margin:0 0 8px;font-size:12px;color:var(--muted);">${rows}</p>`;
+        }).join('');
+        detailEl.innerHTML = `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);"><p style="margin:0 0 8px;font-size:12.5px;font-weight:800;">${wd}요일 근무 (${list.length}명)</p>${teamBlocks}</div>`;
       }
-      tooltip.style.display='block';
-      tooltip.style.left=(e.clientX+16)+'px'; tooltip.style.top=(e.clientY+16)+'px';
     });
   });
 }
