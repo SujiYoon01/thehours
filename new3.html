@@ -140,7 +140,7 @@ tbody tr:last-child td{border-bottom:none;}
 <body>
 <div class="wrap">
   <div class="topbar">
-    <div class="card" style="margin-bottom:0; padding:14px 20px;"><h1 style="font-size:20px;">🛰️ 우주사업총괄 근무실적 현황</h1></div>
+    <h1>🛰️ 우주사업총괄 근무실적 현황</h1>
     <div class="topbar-actions">
       <button class="load-btn" id="loadBtn">CSV 불러오기</button>
       <input type="file" id="fileInput" accept=".csv">
@@ -233,7 +233,7 @@ tbody tr:last-child td{border-bottom:none;}
     </div>
   </div>
 
-  <div class="row2b" style="align-items:start;">
+  <div class="row2b">
     <div class="card">
       <div class="panel-head"><h2>주말 근무 현황</h2><button class="info-icon" data-info="weekend">ⓘ</button></div>
       <div class="weekend-stat" id="weekendStat"></div>
@@ -261,7 +261,6 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="card">
       <div class="panel-head">
         <h2>근무시간 편차 사분면 분포</h2>
-        <button class="info-icon" data-info="quadrant">ⓘ</button>
         <span class="panel-note" id="quadrantModeNote">–</span>
       </div>
       <svg class="quadrant-svg" id="quadrantChart" viewBox="0 0 760 480" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;"></svg>
@@ -285,6 +284,7 @@ tbody tr:last-child td{border-bottom:none;}
 
 <script>
 const EMBEDDED_CSV = ``; // 완성파일/필터저장 시 실제 데이터로 교체됨
+const EMBEDDED_PREV_CSV = ``; // 전월 비교 데이터 임베딩용
 
 /* ===== 상수 ===== */
 const EXEC_RANKS = ['상무','전무','부사장'];
@@ -308,6 +308,7 @@ let RAW_ROWS = [];
 let PREV_RAW_ROWS = [];
 let TEAM_LIST = [];
 let CURRENT_CSV_TEXT = '';
+let PREV_CSV_TEXT = '';
 
 /* ===== 따옴표 안전 처리 CSV 파서 ===== */
 function parseCSV(text){
@@ -423,6 +424,7 @@ document.getElementById('prevFileInput').addEventListener('change', (e)=>{
     if(missing.length>0){ alert(`전월 CSV에서 다음 열을 찾지 못했습니다: ${missing.join(', ')}`); return; }
     PREV_RAW_ROWS = parsed.data.filter(r=>r['사번']);
     PREV_RAW_ROWS.forEach(r=>{ if(DEPT_MERGE[r['부서명']]) r['부서명']=DEPT_MERGE[r['부서명']]; });
+    PREV_CSV_TEXT = text;
     document.getElementById('prevDataStatus').textContent = `전월 비교 데이터: ${file.name}`;
     render();
   };
@@ -754,21 +756,20 @@ function renderQuadrant(latestRows, team){
 
 /* ===== 카드 설명 (버전1: 모달 / 버전2: 가이드 패널 공용) ===== */
 const CARD_INFO = {
-  empSearch: { title:'인원 검색', body:'이름을 검색하면 이번 달 평균 근무시간과, 소속 부서 평균·사업부 전체 평균 대비 몇 시간 많거나 적은지 보여줍니다. 동명이인이 있으면 "이름.부서.직급" 버튼으로 선택할 수 있습니다.' },
-  kpiRatio: { title:'이번 달 평균 52시간 이상 근무 인원', body:'이번 달 전체 주차 평균 근무시간이 52시간을 넘는 인원의 비율(도넛)과 인원수입니다. "평균"이 52시간을 넘는다는 뜻이라, 특정 주만 52시간을 넘은 인원은 포함되지 않을 수 있습니다.' },
-  kpiRisk: { title:'위험군 (2주 이상 연속 52시간)', body:'특정 주가 아니라, 최근 주차부터 거슬러 올라가며 연속으로 몇 주째 52시간 이상을 찍었는지를 봅니다. 2주 연속부터 위험군으로 집계하며, 아래 "위험군 상세" 표에서 개인별 명단을 확인할 수 있습니다.' },
-  kpiAvg: { title:'평균 주간 확정근무시간', body:'선택한 필터(부서 전체 또는 특정 부서) 기준, 이번 달 인원별 평균을 다시 전체 평균낸 값입니다. 법정 상한 52시간까지 얼마나 여유가 있는지 함께 표시됩니다.' },
-  kpiWeekend: { title:'주말 근무 발생 인원', body:'이번 달 중 토요일 또는 일요일에 근무기록이 1분이라도 있는 인원 수입니다. 토요일/일요일 각각의 인원수와, 두 요일 모두 근무한 인원(중복)도 함께 보여줍니다.' },
-  trend: { title:'주별 52시간 근무자 비율 추이', body:'선택한 필터 기준, 각 주차마다 52시간 이상 근무한 인원의 비율(%)과 인원수를 선 그래프로 보여줍니다. 특정 부서로 필터를 걸었을 때는 각 점을 클릭하면 해당 인원의 이름과 직급을 확인할 수 있습니다.' },
-  deptRanking: { title:'부서별 평균 주간 확정근무시간', body:'부서 전체 필터에서는 전 부서를 근무시간 많은 순으로 비교합니다. 특정 부서를 선택하면 그 부서 평균과 사업부 전체 평균, 두 막대만 비교해서 보여줍니다. 점선은 사업부 전체 평균 위치입니다.' },
-  loadRanking: { title:'근무시간 현황', body:'부서 전체 필터에서는 순위를 매기지 않고, 52시간 이상 근무한 인원 전원을 조직 순서(조직건재순)대로 나열합니다. 특정 부서를 선택하면 그 부서 인원 전체를 근무시간이 많은 순으로 순위를 매겨 보여줍니다 — 부서장이 "우리 부서 안에서 누구에게 일이 몰리는지" 확인하는 용도입니다.' },
-  bucket: { title:'주 근무시간대별 인원 분포', body:'인원들을 근무시간 구간(40~42시간, 42~44시간 …)별로 나눠 파이차트로 보여줍니다. 조각을 클릭하면 그 구간에 속한 인원 명단이 부서별로 뜹니다.' },
-  weekday: { title:'평일 요일별 근무시간 편차', body:'월~금 각 요일의 평균 근무시간이, 평일 전체 평균보다 얼마나 많거나(위쪽 막대) 적은지(아래쪽 막대)를 보여줍니다. 특정 요일에 업무가 몰리는 패턴이 있는지 확인하는 용도입니다. 근태예외/입퇴사 등으로 특정 요일 근무시간이 0으로 잡힌 주차는 그 요일 평균 계산에서 제외됩니다.' },
-  weekend: { title:'주말 근무 현황', body:'토요일/일요일 각각 근무한 인원수와 평균 근무시간입니다. 행을 클릭하면 그 요일에 근무한 인원 명단이 부서별로 뜹니다.' },
-  risk: { title:'위험군 상세', body:'2주 이상 연속으로 52시간 이상 근무한 인원의 명단입니다. "연속 52시간" 열은 몇 주 연속인지를, "최근 주 근무시간"은 가장 최근 주차의 실제 근무시간을 보여줍니다.' },
-  riskChange: { title:'위험군 변동 (전월 대비)', body:'"전월 CSV 불러오기"로 지난달 데이터를 첨부하면, 팀별로 이번 달 새로 위험군에 들어온 인원 수(위험군 진입)와 지난달엔 위험군이었지만 이번 달엔 벗어난 인원 수(위험군 이탈)를 조직건재순으로 보여줍니다. 인원수 옆 화살표를 누르면 이름과 직급이 표시됩니다. 부서를 필터링하면 해당 부서만 표시됩니다.' },
-  quadrant: { title:'근무시간 편차 사분면 분포', body:'x축은 평균 근무시간, y축은 기준 평균 대비 편차입니다. 부서 전체를 선택하면 점 하나가 부서 하나이고, 특정 부서를 선택하면 근무시간이 비슷한 사람끼리 묶여 점으로 표시됩니다. 오른쪽 위(근무시간도 길고 평균보다도 많이 높은)에 있는 점이 우선적으로 살펴볼 대상입니다. 점을 클릭하면 명단이 뜹니다.' }
-};
+  empSearch: { title:'인원 검색', body:'이름 검색 시 이번 달 평균 근무시간과 부서 및 사업부 평균 대비 편차 확인 가능' },
+  kpiRatio: { title:'이번 달 평균 52시간 이상 근무 인원', body:'이번 달 전체 주차 평균 근무시간이 52시간을 초과하는 인원수와 비율 확인 가능' },
+  kpiRisk: { title:'위험군 (2주 이상 연속 52시간)', body:'연속 2주 이상 52시간 이상 근무한 인원을 위험군으로 집계, 상세 명단은 하단에서 확인 가능' },
+  kpiAvg: { title:'평균 주간 확정근무시간', body:'특정 부서 필터시 해당 부서와 사업부 전체 평균 비교 가능, 법정 상한 52시간 기준으로 집계' },
+  kpiWeekend: { title:'주말 근무 발생 인원', body:'이번 달 토요일, 일요일에 근무기록이 있는 인원수 확인 가능' },
+  trend: { title:'주별 52시간 근무자 비율 추이', body:'이번 달 각 주차마다 52시간 이상 근무한 인원의 비율과 인원수를 나타내며, 부서 필터 적용 시 각 점을 클릭하여 해당 인원 확인 가능' },
+  deptRanking: { title:'부서별 평균 주간 확정근무시간', body:'특정 부서 선택 시 해당 부서와 사업부 전체 핑균 비교' },
+  loadRanking: { title:'근무시간 현황', body:'특정 부서 선택시 해당 부서 인원 전체를 근무시간이 많은 순으로 확인 가능' },
+  bucket: { title:'주 근무시간대별 인원 분포', body:'근무시간 구간별로 분류, 조각 클릭 시 해당 구간 소속 인원 확인 가능' },
+  weekday: { title:'평일 요일별 근무시간 편차', body:'평일 각 요일의 평균 근무시간이 평일 전체 평균 대비 갖는 편차' },
+  weekend: { title:'주말 근무 현황', body:'토요일·일요일 각각의 근무 인원수와 평균 근무시간, 요일 클릭 시 해당 인원 확인 가능' },
+  risk: { title:'위험군 상세', body:'연속 2주 이상 52시간 이상 근무한 인원 표시' },
+  riskChange: { title:'위험군 변동 (전월 대비)', body:'부서별 위험군 신규 진입 및 이탈 인원 표시, 화살표 클릭 시 해당 인원 확인 가능' }
+  };
 
 /* ---- 버전1: 클릭 시 모달 ---- */
 document.addEventListener('click', (e)=>{
@@ -945,7 +946,7 @@ function renderDeptRanking(latestRows, orgLatestRows, activeTeam, prevLatestRows
       const tick = i.label==='사업부 전체 평균' ? '' : `<div class="ceiling-tick" style="left:${(orgAvg/axisMax*100).toFixed(2)}%"></div>`;
       return `<div class="hbar-row"><div class="hbar-name">${i.label}</div>
         <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div>${tick}</div>
-        <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span>${deltaHtml(i.avg, prevAvgFor(i.label))}</div>`;
+        <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span><span style="display:inline-block;min-width:90px;">${deltaHtml(i.avg, prevAvgFor(i.label))}</span></div>`;
     }).join('');
     return;
   }
@@ -958,7 +959,7 @@ function renderDeptRanking(latestRows, orgLatestRows, activeTeam, prevLatestRows
     const pct=(i.avg/axisMax*100).toFixed(2), color=colorForHourStep(i.avg);
     return `<div class="hbar-row"><div class="hbar-name">${i.team}</div>
       <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div><div class="ceiling-tick" style="left:${(orgAvg/axisMax*100).toFixed(2)}%"></div></div>
-      <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span>${deltaHtml(i.avg, prevAvgFor(i.team))}</div>`;
+      <span class="hbar-val" style="color:${color}">${fmt1(i.avg)}</span><span style="display:inline-block;min-width:90px;">${deltaHtml(i.avg, prevAvgFor(i.team))}</span></div>`;
   }).join('');
 }
 
@@ -1066,7 +1067,7 @@ function renderWeekend(latestRows){
         const byTeam = {};
         list.forEach(r=>{ const t=r['부서명']||'기타'; (byTeam[t]=byTeam[t]||[]).push(r); });
         const teamBlocks = Object.keys(byTeam).sort().map(t=>{
-          const rows = byTeam[t].map(r=>`${r['이름']}(${r['직급']}) — ${fmt1(numH(r[wd]))}시간`).join('<br>');
+          const rows = byTeam[t].map(r=>`${r['이름']}(${r['직급']})`).join('<br>');
           return `<b>${t}</b><br>${rows}`;
         }).join('<br><br>');
         tooltip.innerHTML = `<b>${wd}요일 근무 (${list.length}명)</b><br><br>${teamBlocks}`;
@@ -1217,6 +1218,16 @@ function exportStandalone(){
   if(start===-1){ alert('내보내기용 템플릿을 찾지 못했습니다.'); return; }
   const closeIdx = html.indexOf('`;', start+marker.length);
   html = html.slice(0,start) + marker + esc + html.slice(closeIdx);
+
+  if(PREV_CSV_TEXT){
+    const escPrev = PREV_CSV_TEXT.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$\{/g,'\\${');
+    const markerPrev = 'const EMBEDDED_PREV_CSV = `';
+    const startPrev = html.indexOf(markerPrev);
+    if(startPrev!==-1){
+      const closeIdxPrev = html.indexOf('`;', startPrev+markerPrev.length);
+      html = html.slice(0,startPrev) + markerPrev + escPrev + html.slice(closeIdxPrev);
+    }
+  }
   downloadHtml(html, '우주사업총괄_근무실적현황.html');
 }
 function exportTeamHTML(){
@@ -1252,6 +1263,14 @@ document.getElementById('exportTeamBtn').addEventListener('click', exportTeamHTM
 
 /* ===== 시작 ===== */
 if(EMBEDDED_CSV.trim()){ loadFromText(EMBEDDED_CSV, '내장된 데이터'); }
+if(EMBEDDED_PREV_CSV.trim()){
+  const parsedPrev = parseCSV(EMBEDDED_PREV_CSV);
+  PREV_RAW_ROWS = parsedPrev.data.filter(r=>r['사번']);
+  PREV_RAW_ROWS.forEach(r=>{ if(DEPT_MERGE[r['부서명']]) r['부서명']=DEPT_MERGE[r['부서명']]; });
+  PREV_CSV_TEXT = EMBEDDED_PREV_CSV;
+  document.getElementById('prevDataStatus').textContent = '전월 비교 데이터: 내장된 데이터';
+  render();
+}
 </script>
 </body>
 </html>
