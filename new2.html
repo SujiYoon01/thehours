@@ -1066,7 +1066,7 @@ function renderWeekend(latestRows){
         const byTeam = {};
         list.forEach(r=>{ const t=r['부서명']||'기타'; (byTeam[t]=byTeam[t]||[]).push(r); });
         const teamBlocks = Object.keys(byTeam).sort().map(t=>{
-          const rows = byTeam[t].map(r=>`${r['이름']}(${r['직급']}) — ${fmt1(numH(r[wd]))}시간`).join('<br>');
+          const rows = byTeam[t].map(r=>`${r['이름']}(${r['직급']}).join('<br>');
           return `<b>${t}</b><br>${rows}`;
         }).join('<br><br>');
         tooltip.innerHTML = `<b>${wd}요일 근무 (${list.length}명)</b><br><br>${teamBlocks}`;
