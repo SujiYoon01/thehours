@@ -288,6 +288,7 @@ tbody tr:last-child td{border-bottom:none;}
 const EMBEDDED_CSV = ``; // 완성파일/필터저장 시 실제 데이터로 교체됨
 const EMBEDDED_PREV_CSV = ``; // 전월 비교 데이터 임베딩용
 let IS_DEPT_EXPORT = false; // 부서별 필터 저장본에서는 true로 치환되어 '부서 전체' 옵션이 사라지고 해당 팀으로 고정됨
+const EMBEDDED_ORG_AVG = ''; // 부서별 필터 저장 시 저장 시점의 사업부 전체 평균(숫자)이 여기 박혀서, 팀 데이터만 있어도 정확한 비교가 가능해짐
 
 /* ===== 상수 ===== */
 const EXEC_RANKS = ['상무','전무','부사장'];
@@ -834,7 +835,7 @@ function renderKpis(latestRows, monthKeys, allRows, orgLatestRows, team, prevLat
     const diff = ratio-prevRatio;
     deltaTxt = `전월 대비 ${diff>=0?'+':''}${fmt1(diff)}%p`;
   }
-  if(team!=='all' && orgLatestRows.length){
+  if(team!=='all' && orgLatestRows.length && !IS_DEPT_EXPORT){
     const orgTotal = orgLatestRows.length;
     const orgOver = orgLatestRows.filter(r=>r._Q>=52).length;
     deltaTxt += `. 사업부 전체 ${fmt1(orgTotal?orgOver/orgTotal*100:0)}%`;
@@ -938,7 +939,9 @@ function renderLoadRanking(latestRows, team){
 }
 
 function renderDeptRanking(latestRows, orgLatestRows, activeTeam, prevLatestRows){
-  document.getElementById('deptOrgAvgLabel').textContent = fmt1(orgLatestRows.length?orgLatestRows.reduce((s,r)=>s+r._Q,0)/orgLatestRows.length:0);
+  const orgAvgOverride = (IS_DEPT_EXPORT && EMBEDDED_ORG_AVG) ? parseFloat(EMBEDDED_ORG_AVG) : null;
+  const orgAvgComputed = orgLatestRows.length ? orgLatestRows.reduce((s,r)=>s+r._Q,0)/orgLatestRows.length : 0;
+  document.getElementById('deptOrgAvgLabel').textContent = fmt1(orgAvgOverride!==null ? orgAvgOverride : orgAvgComputed);
   const prevByTeam = {};
   (prevLatestRows||[]).forEach(r=>{ const t=r['부서명']; if(!t) return; (prevByTeam[t]=prevByTeam[t]||[]).push(r._Q); });
   const prevAvgFor = t => { const a=prevByTeam[t]; return (a&&a.length) ? a.reduce((x,y)=>x+y,0)/a.length : null; };
@@ -951,7 +954,7 @@ function renderDeptRanking(latestRows, orgLatestRows, activeTeam, prevLatestRows
   };
   if(activeTeam && activeTeam!=='all'){
     const teamAvg = latestRows.length ? latestRows.reduce((s,r)=>s+r._Q,0)/latestRows.length : 0;
-    const orgAvg = orgLatestRows.length ? orgLatestRows.reduce((s,r)=>s+r._Q,0)/orgLatestRows.length : 0;
+    const orgAvg = orgAvgOverride!==null ? orgAvgOverride : orgAvgComputed;
     const axisMax = Math.max(56, teamAvg*1.05, orgAvg*1.05);
     const items = [{label:activeTeam, avg:teamAvg},{label:'사업부 전체 평균', avg:orgAvg}];
     document.getElementById('deptRanking').innerHTML = items.map(i=>{
@@ -1243,10 +1246,19 @@ function exportStandalone(){
   }
   downloadHtml(html, '우주사업총괄_근무실적현황.html');
 }
+function computeCurrentOrgAvg(){
+  let orgRows = RAW_ROWS.filter(isValidRow);
+  orgRows.forEach(r=>{ r._week = weekKey(r); r._Q = numH(r['주확정근무시간']); });
+  const monthKeys = [...new Set(orgRows.map(r=>r['년월']))].sort();
+  const latestMonth = monthKeys[monthKeys.length-1];
+  const latestRows = buildMonthlyRows(orgRows, latestMonth);
+  return latestRows.length ? latestRows.reduce((s,r)=>s+r._Q,0)/latestRows.length : 0;
+}
 function exportTeamHTML(){
   if(RAW_ROWS.length===0){ alert('먼저 CSV를 불러와주세요.'); return; }
   const team = document.getElementById('teamFilter').value;
   if(team==='all'){ alert('저장할 특정 부서를 선택해주세요.'); return; }
+  const orgAvgAtExport = computeCurrentOrgAvg();
   let rows = RAW_ROWS.filter(r => r['구분']!==EXCLUDE_WORKTYPE && !EXEC_RANKS.includes(r['직급']) && !EXCLUDE_DEPT.includes(r['부서명']));
   rows = rows.filter(r=>r['부서명']===team);
   if(rows.length===0){ alert('선택한 부서에 해당하는 데이터가 없습니다.'); return; }
@@ -1281,6 +1293,7 @@ function exportTeamHTML(){
   }
 
   html = html.replace('let IS_DEPT_EXPORT = false;', 'let IS_DEPT_EXPORT = true;');
+  html = html.replace("const EMBEDDED_ORG_AVG = '';", `const EMBEDDED_ORG_AVG = '${orgAvgAtExport}';`);
   downloadHtml(html, `${team}_근무실적현황.html`);
 }
 function downloadHtml(html, filename){
