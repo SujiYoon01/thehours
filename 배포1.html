@@ -23,8 +23,9 @@ body{margin:0; background:var(--page-bg); color:var(--navy); font-family:'Malgun
 #fileInput{display:none;}
 .filters{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; align-items:center;}
 .filters select{background:#fff; border:1px solid var(--border); border-radius:999px; padding:9px 16px; font-size:12.5px; color:var(--navy); font-weight:600;}
+.filters select:disabled{background:#F6F9FB; color:var(--muted); cursor:not-allowed;}
 .data-status{font-size:11.5px; color:var(--muted); font-weight:600; margin-left:auto;}
-.page-nav{display:flex; gap:8px; margin-bottom:18px; align-items:center;}
+.page-nav{display:flex; gap:8px; margin-bottom:18px;}
 .page-tab{background:#fff; border:1px solid var(--border); border-radius:999px; padding:9px 18px; font-size:12.5px; font-weight:700; color:var(--muted); cursor:pointer;}
 .page-tab.active{background:var(--navy); color:#fff; border-color:var(--navy);}
 .page-tab:disabled{opacity:.5; cursor:not-allowed;}
@@ -135,19 +136,6 @@ tbody tr:last-child td{border-bottom:none;}
 .riskchange-team-detail.open{display:block;}
 .riskchange-person{font-size:12px; font-weight:600; margin:0 0 6px; color:var(--navy);}
 .riskchange-person span{color:var(--muted); font-weight:600;}
-/* 메모 (+ 버튼 방식) */
-.insight-wrap{margin-top:10px;}
-.memo-wrap:empty{margin:0;}
-.memo-add-btn{background:none; border:1px dashed var(--border); color:var(--muted); font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:999px; cursor:pointer;}
-.memo-add-btn:hover{border-color:var(--skyblue); color:var(--skyblue);}
-.memo-label{display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:11.5px; font-weight:700; color:var(--steel);}
-.memo-caret{width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid var(--muted); transition:transform .15s;}
-.memo-caret.open{transform:rotate(180deg);}
-.memo-body{margin-top:8px;}
-.memo-textarea{width:100%; min-height:70px; border:1px solid var(--border); border-radius:12px; padding:10px 12px; font-size:12.5px; font-family:inherit; color:var(--navy); resize:vertical; background:#fff; margin-bottom:6px;}
-.memo-readonly{font-size:12.5px; color:var(--navy); line-height:1.6; white-space:pre-wrap; background:#F6F9FB; border-radius:12px; padding:10px 12px;}
-.memo-delete-btn{background:none; border:none; color:var(--coral); font-size:11px; font-weight:700; cursor:pointer; padding:0;}
-#editModeBtn{margin-left:auto;}
 </style>
 </head>
 <body>
@@ -175,7 +163,6 @@ tbody tr:last-child td{border-bottom:none;}
   <div class="page-nav">
     <button class="page-tab active" data-page="0">근무실적 현황</button>
     <button class="page-tab" data-page="1">사분면 분포</button>
-    <button class="load-btn steel" id="editModeBtn" style="background:var(--muted); display:none;">편집 모드 OFF</button>
   </div>
 
   <div class="page" id="pageMain">
@@ -221,16 +208,10 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="panel-head"><h2>주별 52시간 이상 근무자 비율 추이</h2><button class="info-icon" data-info="trend">ⓘ</button><span class="panel-note">전체 주차</span></div>
       <svg class="linechart" id="trendChart" viewBox="0 0 1000 170" preserveAspectRatio="none"></svg>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px;font-weight:600;" id="trendLabels"></div>
-      <div class="insight-wrap" data-insight-wrap="trend">
-        <div class="memo-wrap" id="memoWrap_trend"></div>
-      </div>
     </div>
     <div class="card">
       <div class="panel-head"><h2>부서별 평균 주간 확정근무시간</h2><button class="info-icon" data-info="deptRanking">ⓘ</button><span class="legend-dash"><span class="d"></span>사업부 전체 평균 <span id="deptOrgAvgLabel">-</span>시간</span></div>
       <div id="deptRanking"></div>
-      <div class="insight-wrap" data-insight-wrap="deptRanking">
-        <div class="memo-wrap" id="memoWrap_deptRanking"></div>
-      </div>
     </div>
   </div>
 
@@ -240,26 +221,17 @@ tbody tr:last-child td{border-bottom:none;}
       <table><thead><tr id="loadRankingHead"><th>순위</th><th>이름</th><th>부서</th><th>직급</th><th>근무시간</th></tr></thead>
       <tbody id="loadRankingBody"></tbody></table>
     </div>
-    <div class="insight-wrap" data-insight-wrap="loadRanking">
-      <div class="memo-wrap" id="memoWrap_loadRanking"></div>
-    </div>
   </div>
 
   <div class="row2b">
     <div class="card">
       <div class="panel-head"><h2>주 근무시간대별 인원 분포</h2><button class="info-icon" data-info="bucket">ⓘ</button><span class="panel-note" id="bucketNote">–</span></div>
       <div class="pie-row"><svg class="pie-svg" id="bucketPie" viewBox="0 0 320 320"></svg></div>
-      <div class="insight-wrap" data-insight-wrap="bucket">
-        <div class="memo-wrap" id="memoWrap_bucket"></div>
-      </div>
     </div>
     <div class="card">
       <div class="panel-head"><h2>평일 요일별 근무시간 편차</h2><button class="info-icon" data-info="weekday">ⓘ</button><span class="panel-note" id="weekdayNote">평일 평균 대비</span></div>
       <div class="diverge-row" id="weekdayChart"><div class="diverge-baseline"></div></div>
       <div class="diverge-labels"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span></div>
-      <div class="insight-wrap" data-insight-wrap="weekday">
-        <div class="memo-wrap" id="memoWrap_weekday"></div>
-      </div>
     </div>
   </div>
 
@@ -267,18 +239,12 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="card">
       <div class="panel-head"><h2>주말 근무 현황</h2><button class="info-icon" data-info="weekend">ⓘ</button></div>
       <div class="weekend-stat" id="weekendStat"></div>
-      <div class="insight-wrap" data-insight-wrap="weekend">
-        <div class="memo-wrap" id="memoWrap_weekend"></div>
-      </div>
     </div>
     <div class="card">
       <div class="panel-head"><h2>위험군 상세 (연속 52시간 이상 근무자)</h2><button class="info-icon" data-info="risk">ⓘ</button><span class="panel-note">2주 이상 연속 52시간</span></div>
       <div class="risk-table-wrap">
         <table><thead><tr><th>이름</th><th>부서</th><th>직급</th><th>연속 52시간</th><th>최근 주 근무시간</th></tr></thead>
         <tbody id="riskTableBody"></tbody></table>
-      </div>
-      <div class="insight-wrap" data-insight-wrap="risk">
-        <div class="memo-wrap" id="memoWrap_risk"></div>
       </div>
     </div>
   </div>
@@ -288,9 +254,6 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="row2b" style="margin-bottom:0;">
       <div><p style="margin:0 0 10px;font-size:12.5px;font-weight:800;color:var(--coral);">위험군 진입</p><div id="riskNewList"></div></div>
       <div><p style="margin:0 0 10px;font-size:12.5px;font-weight:800;color:var(--skyblue);">위험군 이탈</p><div id="riskExitList"></div></div>
-    </div>
-    <div class="insight-wrap" data-insight-wrap="riskChange">
-      <div class="memo-wrap" id="memoWrap_riskChange"></div>
     </div>
   </div>
 
@@ -324,9 +287,7 @@ tbody tr:last-child td{border-bottom:none;}
 <script>
 const EMBEDDED_CSV = ``; // 완성파일/필터저장 시 실제 데이터로 교체됨
 const EMBEDDED_PREV_CSV = ``; // 전월 비교 데이터 임베딩용
-const EMBEDDED_INSIGHTS = `{}`; // 시사점/Action Item 임베딩용
-let IS_REPORT_MODE = false; // 저장 시 true로 치환되어 편집 모드 버튼 자체가 사라짐
-let IS_DEPT_EXPORT = false; // 부서별 필터 저장본에서 true로 치환되어 시사점 카드 자체가 숨겨짐
+let IS_DEPT_EXPORT = false; // 부서별 필터 저장본에서는 true로 치환되어 '부서 전체' 옵션이 사라지고 해당 팀으로 고정됨
 
 /* ===== 상수 ===== */
 const EXEC_RANKS = ['상무','전무','부사장'];
@@ -351,90 +312,6 @@ let PREV_RAW_ROWS = [];
 let TEAM_LIST = [];
 let CURRENT_CSV_TEXT = '';
 let PREV_CSV_TEXT = '';
-
-/* ===== 메모 (+ 버튼 방식) ===== */
-const MEMO_KEYS = ['trend','deptRanking','loadRanking','bucket','weekday','weekend','risk','riskChange'];
-let INSIGHTS = {};
-try{ INSIGHTS = JSON.parse(EMBEDDED_INSIGHTS) || {}; }catch(e){ INSIGHTS = {}; }
-let EDIT_MODE = false;
-let MEMO_OPEN = new Set();
-
-function renderMemoUI(key){
-  const wrap = document.getElementById('memoWrap_'+key);
-  if(!wrap) return;
-  const text = INSIGHTS[key] || '';
-  const isOpen = MEMO_OPEN.has(key);
-  const canEdit = EDIT_MODE && !IS_REPORT_MODE;
-
-  if(!text){
-    if(!canEdit){ wrap.innerHTML = ''; return; }
-    if(!isOpen){ wrap.innerHTML = `<button class="memo-add-btn" data-memo-add="${key}">+ 메모 추가</button>`; return; }
-    wrap.innerHTML = `<div class="memo-body" style="margin-top:0;">
-      <textarea class="memo-textarea" data-memo-key="${key}" placeholder="메모를 입력하세요."></textarea>
-      <button class="memo-delete-btn" data-memo-cancel="${key}">취소</button>
-    </div>`;
-    return;
-  }
-
-  const label = `<div class="memo-label" data-memo-toggle="${key}"><span>📌 메모</span><span class="memo-caret${isOpen?' open':''}"></span></div>`;
-  let body = '';
-  if(isOpen){
-    body = canEdit
-      ? `<div class="memo-body"><textarea class="memo-textarea" data-memo-key="${key}">${text.replace(/</g,'&lt;')}</textarea><button class="memo-delete-btn" data-memo-delete="${key}">삭제</button></div>`
-      : `<div class="memo-body"><div class="memo-readonly">${text.replace(/</g,'&lt;')}</div></div>`;
-  }
-  wrap.innerHTML = label + body;
-}
-function renderAllMemoUI(){ MEMO_KEYS.forEach(renderMemoUI); }
-
-document.addEventListener('click', (e)=>{
-  const addBtn = e.target.closest('.memo-add-btn');
-  if(addBtn){ MEMO_OPEN.add(addBtn.dataset.memoAdd); renderMemoUI(addBtn.dataset.memoAdd); return; }
-
-  const label = e.target.closest('.memo-label');
-  if(label){
-    const key = label.dataset.memoToggle;
-    if(MEMO_OPEN.has(key)) MEMO_OPEN.delete(key); else MEMO_OPEN.add(key);
-    renderMemoUI(key);
-    return;
-  }
-
-  const delBtn = e.target.closest('.memo-delete-btn[data-memo-delete]');
-  if(delBtn){
-    const key = delBtn.dataset.memoDelete;
-    delete INSIGHTS[key];
-    MEMO_OPEN.delete(key);
-    renderMemoUI(key);
-    return;
-  }
-
-  const cancelBtn = e.target.closest('.memo-delete-btn[data-memo-cancel]');
-  if(cancelBtn){
-    const key = cancelBtn.dataset.memoCancel;
-    delete INSIGHTS[key];
-    MEMO_OPEN.delete(key);
-    renderMemoUI(key);
-    return;
-  }
-});
-
-document.addEventListener('input', (e)=>{
-  const ta = e.target.closest('.memo-textarea');
-  if(!ta) return;
-  INSIGHTS[ta.dataset.memoKey] = ta.value;
-});
-
-const editModeBtn = document.getElementById('editModeBtn');
-if(IS_REPORT_MODE){
-  editModeBtn.remove();
-} else {
-  editModeBtn.addEventListener('click', ()=>{
-    EDIT_MODE = !EDIT_MODE;
-    editModeBtn.textContent = EDIT_MODE ? '편집 모드 ON' : '편집 모드 OFF';
-    editModeBtn.style.background = EDIT_MODE ? 'var(--coral)' : 'var(--muted)';
-    renderAllMemoUI();
-  });
-}
 
 /* ===== 따옴표 안전 처리 CSV 파서 ===== */
 function parseCSV(text){
@@ -596,8 +473,14 @@ function buildFilterOptions(){
   TEAM_LIST = sortByOrgOrder([...new Set(RAW_ROWS.filter(isValidRow).map(r=>r['부서명']).filter(Boolean))]);
   const sel = document.getElementById('teamFilter');
   const prev = sel.value;
-  sel.innerHTML = '<option value="all">부서 전체</option>' + TEAM_LIST.map(t=>`<option value="${t}">${t}</option>`).join('');
-  if(TEAM_LIST.includes(prev)) sel.value = prev;
+  if(IS_DEPT_EXPORT){
+    sel.innerHTML = TEAM_LIST.map(t=>`<option value="${t}">${t}</option>`).join('');
+    if(TEAM_LIST.length) sel.value = TEAM_LIST[0];
+    sel.disabled = true;
+  } else {
+    sel.innerHTML = '<option value="all">부서 전체</option>' + TEAM_LIST.map(t=>`<option value="${t}">${t}</option>`).join('');
+    if(TEAM_LIST.includes(prev)) sel.value = prev;
+  }
 }
 document.getElementById('teamFilter').addEventListener('change', render);
 
@@ -712,13 +595,6 @@ document.getElementById('empSearchResetBtn').addEventListener('click', ()=>{
 function render(){
   if(RAW_ROWS.length===0) return;
   const team = document.getElementById('teamFilter').value;
-
-  const showInsights = (team==='all') && !IS_DEPT_EXPORT;
-  document.querySelectorAll('.insight-wrap').forEach(el=>{ el.style.display = showInsights ? '' : 'none'; });
-  if(!IS_REPORT_MODE){
-    document.getElementById('editModeBtn').style.display = showInsights ? '' : 'none';
-  }
-
   let rows = RAW_ROWS.filter(isValidRow);
   rows.forEach(r=>{ r._week = weekKey(r); r._Q = numH(r['주확정근무시간']); });
   const orgRows = rows; // 부서필터 미적용 전체(사업부 전체 평균 계산용)
@@ -1365,16 +1241,6 @@ function exportStandalone(){
       html = html.slice(0,startPrev) + markerPrev + escPrev + html.slice(closeIdxPrev);
     }
   }
-
-  const insightsJson = JSON.stringify(INSIGHTS).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$\{/g,'\\${');
-  const markerInsight = 'const EMBEDDED_INSIGHTS = `';
-  const startInsight = html.indexOf(markerInsight);
-  if(startInsight!==-1){
-    const closeIdxInsight = html.indexOf('`;', startInsight+markerInsight.length);
-    html = html.slice(0,startInsight) + markerInsight + insightsJson + html.slice(closeIdxInsight);
-  }
-  html = html.replace('let IS_REPORT_MODE = false;', 'let IS_REPORT_MODE = true;');
-
   downloadHtml(html, '우주사업총괄_근무실적현황.html');
 }
 function exportTeamHTML(){
@@ -1386,16 +1252,34 @@ function exportTeamHTML(){
   if(rows.length===0){ alert('선택한 부서에 해당하는 데이터가 없습니다.'); return; }
   const header = ['No.','구분','년월','주차','사번','이름','직급','사업장','부서명','월','화','수','목','금','토','일','주확정근무시간','평일확정근무시간','법정휴게시간','비업무_기타','비업무','비업무(중식)'];
   const escCell = v => { const s=String(v??''); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
-  const lines = [header.join(',')];
-  rows.forEach(r=> lines.push(header.map(h=>escCell(r[h])).join(',')));
-  const csvText = '\uFEFF' + lines.join('\r\n');
+  const buildCsvText = (rowsArr) => {
+    const lines = [header.join(',')];
+    rowsArr.forEach(r=> lines.push(header.map(h=>escCell(r[h])).join(',')));
+    return '\uFEFF' + lines.join('\r\n');
+  };
+  const csvText = buildCsvText(rows);
   const esc = csvText.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$\{/g,'\\${');
   let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
   const marker = 'const EMBEDDED_CSV = `';
   const start = html.indexOf(marker);
   const closeIdx = html.indexOf('`;', start+marker.length);
   html = html.slice(0,start) + marker + esc + html.slice(closeIdx);
-  html = html.replace('let IS_REPORT_MODE = false;', 'let IS_REPORT_MODE = true;');
+
+  if(PREV_RAW_ROWS.length){
+    let prevRows = PREV_RAW_ROWS.filter(r => r['구분']!==EXCLUDE_WORKTYPE && !EXEC_RANKS.includes(r['직급']) && !EXCLUDE_DEPT.includes(r['부서명']));
+    prevRows = prevRows.filter(r=>r['부서명']===team);
+    if(prevRows.length>0){
+      const prevCsvText = buildCsvText(prevRows);
+      const escPrev = prevCsvText.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$\{/g,'\\${');
+      const markerPrev = 'const EMBEDDED_PREV_CSV = `';
+      const startPrev = html.indexOf(markerPrev);
+      if(startPrev!==-1){
+        const closeIdxPrev = html.indexOf('`;', startPrev+markerPrev.length);
+        html = html.slice(0,startPrev) + markerPrev + escPrev + html.slice(closeIdxPrev);
+      }
+    }
+  }
+
   html = html.replace('let IS_DEPT_EXPORT = false;', 'let IS_DEPT_EXPORT = true;');
   downloadHtml(html, `${team}_근무실적현황.html`);
 }
@@ -1411,7 +1295,6 @@ document.getElementById('exportBtn').addEventListener('click', exportStandalone)
 document.getElementById('exportTeamBtn').addEventListener('click', exportTeamHTML);
 
 /* ===== 시작 ===== */
-renderAllMemoUI();
 if(EMBEDDED_CSV.trim()){ loadFromText(EMBEDDED_CSV, '내장된 데이터'); }
 if(EMBEDDED_PREV_CSV.trim()){
   const parsedPrev = parseCSV(EMBEDDED_PREV_CSV);
