@@ -1,8 +1,5 @@
-  renderTeamLoadSummary(latestRows, rows);
-
-
-
-
-
-
-  teamLoad: { title:'팀별 업무부하 현황', body:'팀별 평균 근무시간, 52시간 초과 비율, 위험군 인원, 주말 근무 인원을 조직건재순으로 종합하여 표시함.' },
+=IF(A2="","",
+IF(SUMPRODUCT(--ISNUMBER(SEARCH({"우주","항공","천문","위성"},A2)))>0,"A",
+IF(SUMPRODUCT(--ISNUMBER(SEARCH({"기계","재료","신소재","금속","바이오","생명","제어","계측","로봇"},A2)))>0,"B",
+IF(SUMPRODUCT(--ISNUMBER(SEARCH({"통신","전파","무선"},A2)))>0,"C",
+IF(SUMPRODUCT(--ISNUMBER(SEARCH({"전기","전자","컴퓨터","전산","통계","소프트웨어","반도체"},A2)))>0,"D","E")))))
